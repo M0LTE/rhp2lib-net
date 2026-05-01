@@ -64,8 +64,6 @@ All artifacts are attached to the auto-generated GitHub Release.
 
 Open a [GitHub issue](https://github.com/M0LTE/rhp2lib-net/issues) with:
 
-* The exact `rhp` version (`rhp --help` prints it indirectly via
-  `--version` in future builds; for now, the commit SHA or release tag
-  is fine).
+* Which release tag (or commit SHA) you're running.
 * The wire transcript if you can capture one — `tcpdump -X -i lo port
   9000` is your friend.
