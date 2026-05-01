@@ -4,7 +4,7 @@ A C# / .NET 10 client library, test harness, and command-line toolkit for
 **RHPv2** — the JSON-over-TCP "Remote Host Protocol" used by XRouter to expose
 its multi-protocol packet engine to applications.
 
-📖 **Full documentation:** <https://rhp2lib.pages.dev/>
+📖 **Full documentation:** <https://m0lte.pages.dev/>
 
 The protocol is described in
 [PWP-0222](https://wiki.oarc.uk/packet:white-papers:pwp-0222) and

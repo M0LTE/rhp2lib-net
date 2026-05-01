@@ -57,7 +57,7 @@ jobs:
           # `deploy` to production on main; preview deploys for PRs and other refs.
           command: >
             pages deploy site
-            --project-name=rhp2lib
+            --project-name=m0lte
             --branch=${{ github.ref == 'refs/heads/main' && 'main' || github.head_ref || github.ref_name }}
             --commit-hash=${{ github.sha }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
