@@ -1,0 +1,184 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic version to release (e.g. 0.1.0). Used only for manual runs.'
+        required: true
+        default: '0.0.0-manual'
+
+permissions:
+  contents: write   # needed to create the GitHub Release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+jobs:
+  resolve:
+    name: resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            ref="${{ github.ref_name }}"
+            echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish-cli:
+    name: publish rhp (${{ matrix.rid }})
+    needs: resolve
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            archive: tar.gz
+          - rid: linux-arm64
+            archive: tar.gz
+          - rid: linux-musl-x64
+            archive: tar.gz
+          - rid: win-x64
+            archive: zip
+          - rid: win-arm64
+            archive: zip
+          - rid: osx-x64
+            archive: tar.gz
+          - rid: osx-arm64
+            archive: tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Restore
+        run: dotnet restore src/RhpV2.Tools/RhpV2.Tools.csproj -r ${{ matrix.rid }}
+
+      - name: Publish self-contained single file
+        run: >
+          dotnet publish src/RhpV2.Tools/RhpV2.Tools.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=embedded
+          -p:Version=${{ needs.resolve.outputs.version }}
+          -p:AssemblyVersion=${{ needs.resolve.outputs.version }}.0
+          -p:FileVersion=${{ needs.resolve.outputs.version }}.0
+          -p:InformationalVersion=${{ needs.resolve.outputs.version }}+${{ github.sha }}
+          -o publish/${{ matrix.rid }}
+
+      - name: Stage extras
+        shell: bash
+        run: |
+          cp README.md publish/${{ matrix.rid }}/
+
+      - name: Package archive
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          ver="${{ needs.resolve.outputs.version }}"
+          rid="${{ matrix.rid }}"
+          base="rhp-${ver}-${rid}"
+          mkdir -p artifacts
+          cd publish/${rid}
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            zip -9 -r "../../artifacts/${base}.zip" .
+            echo "path=artifacts/${base}.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar --owner=0 --group=0 -czf "../../artifacts/${base}.tar.gz" .
+            echo "path=artifacts/${base}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+          cd ../..
+          (cd artifacts && sha256sum "${base}."* > "${base}.sha256")
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: rhp-${{ matrix.rid }}
+          path: artifacts/*
+          if-no-files-found: error
+
+  pack-nuget:
+    name: pack NuGet
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Pack
+        run: >
+          dotnet pack src/RhpV2.Client/RhpV2.Client.csproj
+          -c Release
+          -p:Version=${{ needs.resolve.outputs.version }}
+          -p:PackageVersion=${{ needs.resolve.outputs.version }}
+          -o artifacts
+
+      - name: Upload NuGet
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: artifacts/*.nupkg
+          if-no-files-found: error
+
+  release:
+    name: github release
+    needs: [resolve, publish-cli, pack-nuget]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find dist -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.sha256' -o -name '*.nupkg' \) \
+            -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: rhp ${{ needs.resolve.outputs.version }}
+          generate_release_notes: true
+          files: release/*
+          fail_on_unmatched_files: true

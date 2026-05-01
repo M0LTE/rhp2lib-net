@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -11,6 +11,15 @@
     <Version>0.1.0</Version>
     <Authors>rhp2lib-net contributors</Authors>
     <Description>A .NET client library for the XRouter RHPv2 (Remote Host Protocol v2) JSON-over-TCP packet engine protocol.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/M0LTE/rhp2lib-net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>rhpv2;xrouter;packet-radio;ax25;netrom;ham-radio</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
 </Project>

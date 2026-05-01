@@ -16,21 +16,13 @@ public static class RhpDataEncoding
     public static string ToWireString(ReadOnlySpan<byte> bytes)
     {
         if (bytes.IsEmpty) return string.Empty;
-#if NET8_0_OR_GREATER
         return Encoding.Latin1.GetString(bytes);
-#else
-        return Encoding.GetEncoding(28591).GetString(bytes.ToArray());
-#endif
     }
 
     /// <summary>Decode a Latin-1 wire string back to bytes.</summary>
     public static byte[] FromWireString(string s)
     {
         if (string.IsNullOrEmpty(s)) return Array.Empty<byte>();
-#if NET8_0_OR_GREATER
         return Encoding.Latin1.GetBytes(s);
-#else
-        return Encoding.GetEncoding(28591).GetBytes(s);
-#endif
     }
 }
