@@ -26,3 +26,7 @@ Thumbs.db
 project.lock.json
 .nuget/
 packages/
+
+## mkdocs
+site/
+.venv/

@@ -1,0 +1,105 @@
+site_name: rhp2lib-net
+site_description: A .NET 10 client library, mock server, and CLI for the XRouter RHPv2 packet-radio protocol.
+site_url: https://m0lte.github.io/rhp2lib-net/
+repo_url: https://github.com/M0LTE/rhp2lib-net
+repo_name: M0LTE/rhp2lib-net
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 M0LTE
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - search.highlight
+    - search.share
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - content.tabs.link
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.keys
+  - pymdownx.smartsymbols
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/M0LTE/rhp2lib-net
+  generator: false
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Protocol primer: protocol.md
+  - Library:
+      - Overview: library/overview.md
+      - Connecting & framing: library/transport.md
+      - Messages & enums: library/messages.md
+      - Events & lifecycle: library/events.md
+      - Errors: library/errors.md
+  - CLI (`rhp`):
+      - Overview: cli/index.md
+      - probe: cli/probe.md
+      - chat: cli/chat.md
+      - mon: cli/mon.md
+      - send: cli/send.md
+      - serve: cli/serve.md
+  - Testing:
+      - Mock server: testing/mock-server.md
+      - Writing integration tests: testing/integration.md
+  - Contributing: contributing.md
+  - Release notes: changelog.md
