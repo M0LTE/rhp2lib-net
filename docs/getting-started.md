@@ -29,13 +29,13 @@ the archive matching your platform:
 
 | RID              | Archive                              |
 |------------------|--------------------------------------|
-| `linux-x64`      | `rhp-X.Y.Z-linux-x64.tar.gz`         |
-| `linux-arm64`    | `rhp-X.Y.Z-linux-arm64.tar.gz`       |
-| `linux-musl-x64` | `rhp-X.Y.Z-linux-musl-x64.tar.gz`    |
-| `win-x64`        | `rhp-X.Y.Z-win-x64.zip`              |
-| `win-arm64`      | `rhp-X.Y.Z-win-arm64.zip`            |
-| `osx-x64`        | `rhp-X.Y.Z-osx-x64.tar.gz`           |
-| `osx-arm64`      | `rhp-X.Y.Z-osx-arm64.tar.gz`         |
+| `linux-x64`      | `rhp2lib-net-X.Y.Z-linux-x64.tar.gz`         |
+| `linux-arm64`    | `rhp2lib-net-X.Y.Z-linux-arm64.tar.gz`       |
+| `linux-musl-x64` | `rhp2lib-net-X.Y.Z-linux-musl-x64.tar.gz`    |
+| `win-x64`        | `rhp2lib-net-X.Y.Z-win-x64.zip`              |
+| `win-arm64`      | `rhp2lib-net-X.Y.Z-win-arm64.zip`            |
+| `osx-x64`        | `rhp2lib-net-X.Y.Z-osx-x64.tar.gz`           |
+| `osx-arm64`      | `rhp2lib-net-X.Y.Z-osx-arm64.tar.gz`         |
 
 Each archive contains a single self-contained `rhp` (or `rhp.exe`) — no
 .NET runtime install required.  SHA-256 sums are alongside.
@@ -44,7 +44,7 @@ Each archive contains a single self-contained `rhp` (or `rhp.exe`) — no
 
     ```sh
     curl -L -o rhp.tar.gz \
-      https://github.com/M0LTE/rhp2lib-net/releases/latest/download/rhp-X.Y.Z-linux-x64.tar.gz
+      https://github.com/M0LTE/rhp2lib-net/releases/latest/download/rhp2lib-net-X.Y.Z-linux-x64.tar.gz
     tar -xzf rhp.tar.gz
     sudo mv rhp /usr/local/bin/
     rhp --help
@@ -54,7 +54,7 @@ Each archive contains a single self-contained `rhp` (or `rhp.exe`) — no
 
     ```powershell
     Invoke-WebRequest `
-      -Uri https://github.com/M0LTE/rhp2lib-net/releases/latest/download/rhp-X.Y.Z-win-x64.zip `
+      -Uri https://github.com/M0LTE/rhp2lib-net/releases/latest/download/rhp2lib-net-X.Y.Z-win-x64.zip `
       -OutFile rhp.zip
     Expand-Archive rhp.zip -DestinationPath C:\Tools\rhp
     C:\Tools\rhp\rhp.exe --help

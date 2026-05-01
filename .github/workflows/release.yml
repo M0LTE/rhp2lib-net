@@ -40,7 +40,7 @@ jobs:
           fi
 
   publish-cli:
-    name: publish rhp (${{ matrix.rid }})
+    name: publish rhp2lib-net (${{ matrix.rid }})
     needs: resolve
     runs-on: ubuntu-latest
     strategy:
@@ -102,7 +102,7 @@ jobs:
           set -euo pipefail
           ver="${{ needs.resolve.outputs.version }}"
           rid="${{ matrix.rid }}"
-          base="rhp-${ver}-${rid}"
+          base="rhp2lib-net-${ver}-${rid}"
           mkdir -p artifacts
           cd publish/${rid}
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
@@ -118,7 +118,7 @@ jobs:
       - name: Upload archive
         uses: actions/upload-artifact@v4
         with:
-          name: rhp-${{ matrix.rid }}
+          name: rhp2lib-net-${{ matrix.rid }}
           path: artifacts/*
           if-no-files-found: error
 
@@ -178,7 +178,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: rhp ${{ needs.resolve.outputs.version }}
+          name: rhp2lib-net ${{ needs.resolve.outputs.version }}
           generate_release_notes: true
           files: release/*
           fail_on_unmatched_files: true
