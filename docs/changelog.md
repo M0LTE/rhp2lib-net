@@ -6,7 +6,7 @@ feed, with a short summary per version.
 ## Unreleased
 
 * Initial public docs site (mkdocs-material) wired up at
-  <https://m0lte.github.io/rhp2lib-net/>.
+  <https://rhp2lib.pages.dev/>.
 
 ## 0.1.x — initial cut
 

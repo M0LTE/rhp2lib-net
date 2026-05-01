@@ -35,7 +35,7 @@ Three workflows live under `.github/workflows/`:
 |---------------|--------------------------|-----------------------------------------------------------|
 | `ci.yml`      | push / PR to `main`      | matrix build + test on ubuntu / windows / macOS.          |
 | `release.yml` | tag `v*.*.*`             | publish self-contained `rhp` for 7 RIDs + NuGet pack.     |
-| `docs.yml`    | push to `main`           | build mkdocs and deploy to GitHub Pages.                  |
+| `docs.yml`    | push / PR (docs paths)   | build mkdocs and deploy to Cloudflare Pages.              |
 
 ## Cutting a release
 

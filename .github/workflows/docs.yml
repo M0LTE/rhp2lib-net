@@ -7,26 +7,33 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  pull-requests: write    # so the deploy step can comment a preview URL on PRs
 
 concurrency:
   group: docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: build
+  build-and-deploy:
+    name: build & deploy
     runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-pages
+      url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0       # mkdocs-material's git revision date plugin likes this
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,28 +42,22 @@ jobs:
           cache: 'pip'
           cache-dependency-path: docs/requirements.txt
 
-      - name: Install dependencies
+      - name: Install mkdocs
         run: pip install -r docs/requirements.txt
 
       - name: Build
         run: mkdocs build --strict
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
         with:
-          path: site
-
-  deploy:
-    name: deploy
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # `deploy` to production on main; preview deploys for PRs and other refs.
+          command: >
+            pages deploy site
+            --project-name=rhp2lib
+            --branch=${{ github.ref == 'refs/heads/main' && 'main' || github.head_ref || github.ref_name }}
+            --commit-hash=${{ github.sha }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
