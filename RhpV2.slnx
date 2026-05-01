@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RhpV2.Client/RhpV2.Client.csproj" />
+    <Project Path="src/RhpV2.Tools/RhpV2.Tools.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RhpV2.Client.Tests/RhpV2.Client.Tests.csproj" />
+  </Folder>
+</Solution>
