@@ -23,8 +23,9 @@ binary or (b) consuming the `RhpV2.Client` library from your own .NET app.
 ## Option A: use the `rhp` CLI
 
 Pre-built single-file binaries are attached to every
-[GitHub Release](https://github.com/M0LTE/rhp2lib-net/releases).  Pick the
-archive matching your platform:
+[GitHub Release](https://github.com/M0LTE/rhp2lib-net/releases) — grab the
+[**latest**](https://github.com/M0LTE/rhp2lib-net/releases/latest) and pick
+the archive matching your platform:
 
 | RID              | Archive                              |
 |------------------|--------------------------------------|

@@ -5,6 +5,7 @@ A C# / .NET 10 client library, test harness, and command-line toolkit for
 its multi-protocol packet engine to applications.
 
 📖 **Full documentation:** <https://rhp2lib.pages.dev/>
+📦 **Downloads:** [GitHub Releases](https://github.com/M0LTE/rhp2lib-net/releases) — self-contained `rhp` binaries for Linux / Windows / macOS, plus the `RhpV2.Client` NuGet.
 
 The protocol is described in
 [PWP-0222](https://wiki.oarc.uk/packet:white-papers:pwp-0222) and

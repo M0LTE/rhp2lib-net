@@ -108,4 +108,5 @@ APRS, raw TCP, ICMP and more, by talking JSON to XRouter.
     still shift before `1.0`.
 
 [Get started :material-arrow-right:](getting-started.md){ .md-button .md-button--primary }
+[Download :material-download:](https://github.com/M0LTE/rhp2lib-net/releases/latest){ .md-button }
 [Protocol primer :material-arrow-right:](protocol.md){ .md-button }
