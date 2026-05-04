@@ -40,6 +40,23 @@ feed, with a short summary per version.
   SABM/UA/I/RR frames with decoded fields; DGRAM `sendto` of a UI
   frame is received by the peer. All exercise real wire traffic
   through the two-container AXUDP fixture.
+* `QueryStatusAsync` redesigned to handle the spec-mandated
+  asymmetric response: per PWP-0222 the server replies to a
+  successful status query with a `status` **notification** (no
+  request-id) rather than a `statusReply`. The previous
+  implementation hung in the success case because the request/reply
+  correlation never matched. The new method races the notification
+  path (subscribed via `StatusChanged`) against the error path
+  (id-correlated `statusReply`), returns `StatusFlags`, and throws
+  `RhpProtocolException` on timeout. **Breaking** for callers that
+  expected the `Task<StatusReplyMessage>` shape.
+* Mock alignment: `MockRhpServer` no longer echoes the request `id`
+  on notification-shaped replies (anything carrying a `seqno`),
+  matching real xrouter's wire behaviour.
+* `RhpErrorCode.NotConnected` (17): real xrouter returns this on
+  `send` against a stream socket whose downlink is not connected.
+  The PWP-0222 / PWP-0245 error tables stop at 16; added to the
+  client's enum and `Text(...)` lookup.
 * Wire-format alignment: every reply now serialises `errCode` /
   `errText` with capital C/T, matching what xrouter actually emits.
   The published spec only mentions this as an AUTHREPLY quirk, but

@@ -148,7 +148,13 @@ internal sealed class MockRhpSession : IAsyncDisposable
                 }
                 if (reply is not null)
                 {
-                    if (incoming.Id is int id) reply.Id = id;
+                    // Echo the request id only on actual reply types.
+                    // Notification-shaped messages (RECV, ACCEPT, STATUS
+                    // pushed on success, server-CLOSE) carry a seqno
+                    // instead and must NOT correlate with a request —
+                    // matching what real xrouter does on the wire.
+                    if (reply.Seqno is null && incoming.Id is int id)
+                        reply.Id = id;
                     await WriteAsync(reply, ct).ConfigureAwait(false);
                 }
             }

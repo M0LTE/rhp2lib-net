@@ -97,6 +97,49 @@ public class Ax25OverAxudpTests
     }
 
     [SkippableFact]
+    public async Task QueryStatusAsync_Returns_Connected_Flag_On_Active_Handle()
+    {
+        // Real xrouter responds to a successful status query with a
+        // status NOTIFICATION (no id), not a statusReply. The library
+        // now races the notification path against the error path; this
+        // pins that the success branch returns CONNECTED for an
+        // established AX.25 stream.
+        RequireFixture();
+
+        const string ListenerCall = "G9DUM-7";
+        const string CallerCall   = "G8PZT-7";
+
+        await using var nodeA = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        await using var nodeB = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeBRhpPort);
+
+        var listener = await nodeA.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await nodeA.BindAsync(listener, local: ListenerCall, port: "2");
+        await nodeA.ListenAsync(listener);
+
+        var connectedTcs = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        nodeB.StatusChanged += (_, e) =>
+        {
+            if ((e.Message.Flags & (int)StatusFlags.Connected) != 0)
+                connectedTcs.TrySetResult(true);
+        };
+
+        var caller = await nodeB.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await nodeB.BindAsync(caller, local: CallerCall, port: "2");
+        await nodeB.ConnectAsync(caller, remote: ListenerCall);
+        await connectedTcs.Task.WaitAsync(ConnectTimeout);
+
+        // Now query — success path returns the current flags via the
+        // async notification.
+        var flags = await nodeB.QueryStatusAsync(caller, responseTimeout: TimeSpan.FromSeconds(5));
+        Assert.True((flags & StatusFlags.Connected) != 0,
+            $"expected Connected, got {flags}");
+
+        try { await nodeB.CloseAsync(caller); } catch { }
+        try { await nodeA.CloseAsync(listener); } catch { }
+    }
+
+    [SkippableFact]
     public async Task Listen_On_Dgram_Socket_Returns_Operation_Not_Supported()
     {
         // Pin: real xrouter responds to `listen` on a DGRAM socket with

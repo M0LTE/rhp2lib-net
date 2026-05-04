@@ -193,6 +193,50 @@ public class RhpClientTests
     }
 
     [Fact]
+    public async Task QueryStatusAsync_Returns_Flags_From_Status_Notification()
+    {
+        // Per spec, status query success returns a status NOTIFICATION
+        // (no id), not a statusReply. Verify the library races those
+        // two response types correctly.
+        await using var server = new MockRhpServer();
+        server.Start();
+        await using var client = await RhpClient.ConnectAsync("127.0.0.1", server.Endpoint.Port);
+
+        var h = await client.OpenAsync(
+            ProtocolFamily.Ax25, SocketMode.Stream,
+            port: "1", local: "G8PZT", remote: "M0XYZ", flags: OpenFlags.Active);
+
+        var flags = await client.QueryStatusAsync(h);
+        Assert.True((flags & StatusFlags.Connected) != 0);
+    }
+
+    [Fact]
+    public async Task QueryStatusAsync_Throws_On_Invalid_Handle_Via_StatusReply()
+    {
+        // Failure path remains: server emits statusReply with errCode,
+        // which the library throws as RhpServerException.
+        await using var server = new MockRhpServer();
+        server.Start();
+        await using var client = await RhpClient.ConnectAsync("127.0.0.1", server.Endpoint.Port);
+
+        var ex = await Assert.ThrowsAsync<RhpServerException>(
+            async () => await client.QueryStatusAsync(99_999));
+        Assert.Equal(RhpErrorCode.InvalidHandle, ex.ErrorCode);
+    }
+
+    [Fact]
+    public async Task QueryStatusAsync_Times_Out_When_Server_Silent()
+    {
+        // No notification, no reply → timeout becomes RhpProtocolException.
+        await using var server = new MockRhpServer { SuppressReplies = true };
+        server.Start();
+        await using var client = await RhpClient.ConnectAsync("127.0.0.1", server.Endpoint.Port);
+
+        await Assert.ThrowsAsync<RhpProtocolException>(
+            async () => await client.QueryStatusAsync(1, responseTimeout: TimeSpan.FromMilliseconds(200)));
+    }
+
+    [Fact]
     public async Task ConnectAsync_Tolerates_Xrouter_ErrCode_Mirrors_Handle_Quirk()
     {
         // Real xrouter returns connectReply with errCode = handle (rather
