@@ -82,7 +82,7 @@ or in your `.csproj`:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="RhpV2.Client" Version="0.2.1" />
+  <PackageReference Include="RhpV2.Client" Version="0.2.2" />
 </ItemGroup>
 ```
 

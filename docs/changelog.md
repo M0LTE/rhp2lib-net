@@ -7,6 +7,15 @@ feed, with a short summary per version.
 
 _Nothing yet._
 
+## 0.2.2 — first NuGet.org publish
+
+Released 2026-05-04.
+
+Same source as 0.2.1; re-cut to exercise the full release flow now
+that the `NUGET_API_KEY` repository secret is configured. The
+`RhpV2.Client` package is published to <https://www.nuget.org/> from
+this version onward.
+
 ## 0.2.1 — real-xrouter integration
 
 Released 2026-05-04.
