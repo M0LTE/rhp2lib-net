@@ -33,15 +33,15 @@ Three workflows live under `.github/workflows/`:
 
 | Workflow      | Trigger                  | What it does                                              |
 |---------------|--------------------------|-----------------------------------------------------------|
-| `ci.yml`      | push / PR to `main`      | matrix build + test on ubuntu / windows / macOS.          |
-| `release.yml` | tag `v*.*.*`             | publish self-contained `rhp` for 7 RIDs + NuGet pack.     |
+| `ci.yml`      | push / PR to `main`      | build + test (`ubuntu-latest`).                           |
+| `release.yml` | tag `v*.*.*`             | publish self-contained `rhp` for 7 RIDs, pack and push the `RhpV2.Client` NuGet, attach everything to the GitHub Release. |
 | `docs.yml`    | push / PR (docs paths)   | build mkdocs and deploy to Cloudflare Pages.              |
 
 ## Cutting a release
 
 ```sh
-git tag v0.2.0
-git push origin v0.2.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 The tag triggers `release.yml`, which produces:

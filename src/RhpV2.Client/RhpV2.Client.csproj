@@ -8,7 +8,7 @@
     <RootNamespace>RhpV2.Client</RootNamespace>
     <AssemblyName>RhpV2.Client</AssemblyName>
     <PackageId>RhpV2.Client</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <Authors>rhp2lib-net contributors</Authors>
     <Description>A .NET client library for the XRouter RHPv2 (Remote Host Protocol v2) JSON-over-TCP packet engine protocol.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

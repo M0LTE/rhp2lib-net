@@ -7,7 +7,7 @@ feed, with a short summary per version.
 
 _Nothing yet._
 
-## 0.2.0 — real-xrouter integration
+## 0.2.1 — real-xrouter integration
 
 Released 2026-05-04.
 
