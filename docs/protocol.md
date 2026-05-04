@@ -174,6 +174,22 @@ surfaces non-zero replies via [`RhpServerException`](library/errors.md).
   form so the mock server matches real xrouter byte-for-byte.
 * PWP-0222 spells the connect reply type as `ConnectReply` (PascalCase).
   The library writes `connectReply` (camelCase) — and reads either.
+* **`connectReply.errCode` mirrors `handle` on success.**  Real xrouter
+  responds to a successful `connect` with a reply where `errCode` is the
+  same integer as `handle` (rather than 0), but `errText` is `"Ok"`.
+  The library treats any `connectReply` with `errText="Ok"` as success
+  regardless of the numeric code, so applications don't see spurious
+  `RhpServerException` throws.  Real failures (e.g. `errText="No Route"`,
+  `errText="Not bound"`) still raise as expected.
+* AX.25 connect is asynchronous: the `connectReply` arrives immediately
+  after the API call, but the actual SABM/UA handshake hasn't happened
+  yet.  The handshake outcome is reported later via `status` notifications
+  (`flags=Connected` on success, link state changes thereafter).
+* The combined `open` + `flags=Active` form **does not establish a
+  working AX.25 stream** on this xrouter version — the openReply
+  succeeds and a status notification with `Connected` follows, but the
+  handle is invalid for any subsequent operations.  Use the BSD
+  lifecycle (`socket → bind → connect`) for AX.25 active connections.
 * Unknown `type` values surface as `UnknownMessage`, preserving the raw
   JSON for forward compatibility.  The real xrouter happens to manufacture
   a reply for unknown types by appending `Reply` to whatever string it

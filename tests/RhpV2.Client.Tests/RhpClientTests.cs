@@ -193,6 +193,56 @@ public class RhpClientTests
     }
 
     [Fact]
+    public async Task ConnectAsync_Tolerates_Xrouter_ErrCode_Mirrors_Handle_Quirk()
+    {
+        // Real xrouter returns connectReply with errCode = handle (rather
+        // than 0) on success, alongside errText="Ok". The library treats
+        // any "Ok" text as success regardless of the numeric code so this
+        // path doesn't throw.
+        await using var server = new MockRhpServer();
+        server.Handler = msg => msg switch
+        {
+            ConnectMessage c => new ConnectReplyMessage
+            {
+                Handle  = c.Handle,
+                ErrCode = c.Handle, // the bug: code mirrors handle on success
+                ErrText = "Ok",
+            },
+            _ => null,
+        };
+        server.Start();
+        await using var client = await RhpClient.ConnectAsync("127.0.0.1", server.Endpoint.Port);
+
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        // Should NOT throw, even though errCode is non-zero.
+        await client.ConnectAsync(h, "G8PZT-1");
+    }
+
+    [Fact]
+    public async Task ConnectAsync_Still_Throws_On_Real_Failure()
+    {
+        // Sanity check that we didn't accidentally swallow real errors.
+        await using var server = new MockRhpServer();
+        server.Handler = msg => msg switch
+        {
+            ConnectMessage c => new ConnectReplyMessage
+            {
+                Handle  = c.Handle,
+                ErrCode = RhpErrorCode.NoRoute,
+                ErrText = "No Route",
+            },
+            _ => null,
+        };
+        server.Start();
+        await using var client = await RhpClient.ConnectAsync("127.0.0.1", server.Endpoint.Port);
+
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        var ex = await Assert.ThrowsAsync<RhpServerException>(
+            async () => await client.ConnectAsync(h, "NOROUTE"));
+        Assert.Equal(RhpErrorCode.NoRoute, ex.ErrorCode);
+    }
+
+    [Fact]
     public async Task Disconnected_Event_Fires_When_Server_Closes()
     {
         var server = new MockRhpServer();

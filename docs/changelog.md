@@ -10,7 +10,17 @@ feed, with a short summary per version.
 * New `RhpV2.Client.IntegrationTests` project: drives the published
   `ghcr.io/packethacking/xrouter` image via Testcontainers to pin
   client behaviour against a real RHP server. Tests skip gracefully
-  when Docker isn't available.
+  when Docker isn't available. Includes a two-container fixture
+  connected by AXUDP that exercises the full data path
+  (`RhpClient → RHP → AX.25 L2 → AXUDP → peer node`) — real SABM/UA
+  handshake, real I-frame send/recv, real orderly close.
+* `connectReply` workaround: real xrouter returns a successful
+  `connectReply` with `errCode = handle` (rather than 0) but
+  `errText = "Ok"`. The library now treats any `connectReply` whose
+  text is `"Ok"` as success regardless of the numeric code so callers
+  don't see spurious `RhpServerException` throws on a working AX.25
+  connect. Real failures (`"No Route"`, `"Not bound"`, etc.) still
+  raise as before.
 * Wire-format alignment: every reply now serialises `errCode` /
   `errText` with capital C/T, matching what xrouter actually emits.
   The published spec only mentions this as an AUTHREPLY quirk, but

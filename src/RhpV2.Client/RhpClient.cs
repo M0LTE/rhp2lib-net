@@ -152,7 +152,10 @@ public sealed class RhpClient : IAsyncDisposable, IDisposable
                 throw new RhpServerException(b.ErrCode, b.ErrText);
             case ListenReplyMessage l when l.ErrCode != 0:
                 throw new RhpServerException(l.ErrCode, l.ErrText);
-            case ConnectReplyMessage c when c.ErrCode != 0:
+            // xrouter quirk: connectReply.errCode mirrors the handle on
+            // success ("Ok"). Treat the textual "Ok" as authoritative
+            // and only throw when the text indicates an actual error.
+            case ConnectReplyMessage c when c.ErrCode != 0 && !IsOkText(c.ErrText):
                 throw new RhpServerException(c.ErrCode, c.ErrText);
             case SendReplyMessage sr when sr.ErrCode != 0:
                 throw new RhpServerException(sr.ErrCode, sr.ErrText);
@@ -164,6 +167,9 @@ public sealed class RhpClient : IAsyncDisposable, IDisposable
                 throw new RhpServerException(cl.ErrCode, cl.ErrText);
         }
     }
+
+    private static bool IsOkText(string? errText) =>
+        errText is not null && errText.Equals("Ok", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Send a fire-and-forget message (no reply correlation).  When the
