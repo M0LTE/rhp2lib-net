@@ -106,20 +106,51 @@ internal static class RhpProcess
     /// without waiting. The caller drives lifecycle (e.g. wait for a
     /// stdout marker, then send Ctrl-C / Kill). Stdout / stderr are
     /// captured into the supplied <see cref="StringBuilder"/>s.
+    /// Set <paramref name="redirectStdin"/> true to drive the
+    /// process's stdin via <see cref="Process.StandardInput"/> — for
+    /// interactive commands like <c>chat</c>.
     /// </summary>
     public static Process Spawn(
         string[] args,
         StringBuilder stdout,
         StringBuilder stderr,
-        out Task drainTask)
+        out Task drainTask,
+        bool redirectStdin = false)
     {
         var psi = BuildStartInfo(args);
+        if (redirectStdin) psi.RedirectStandardInput = true;
         var p = Process.Start(psi)
             ?? throw new InvalidOperationException("Process.Start returned null.");
         drainTask = Task.WhenAll(
             ReadAllAsync(p.StandardOutput, stdout, default),
             ReadAllAsync(p.StandardError, stderr, default));
         return p;
+    }
+
+    /// <summary>
+    /// Wait until <paramref name="predicate"/> returns true on the
+    /// captured stdout text, polling every 100 ms up to
+    /// <paramref name="timeout"/>. Throws <see cref="TimeoutException"/>
+    /// otherwise, including a stdout snapshot for debugging.
+    /// </summary>
+    public static async Task WaitForStdoutAsync(
+        StringBuilder stdout,
+        Func<string, bool> predicate,
+        TimeSpan timeout,
+        string description)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            string snapshot;
+            lock (stdout) snapshot = stdout.ToString();
+            if (predicate(snapshot)) return;
+            await Task.Delay(100);
+        }
+        string final;
+        lock (stdout) final = stdout.ToString();
+        throw new TimeoutException(
+            $"timed out waiting for: {description}\n--- stdout so far ---\n{final}");
     }
 
     private static ProcessStartInfo BuildStartInfo(string[] args)
