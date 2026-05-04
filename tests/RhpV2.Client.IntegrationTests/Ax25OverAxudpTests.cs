@@ -33,16 +33,10 @@ public class Ax25OverAxudpTests
     private readonly XRouterPairFixture _fx;
     public Ax25OverAxudpTests(XRouterPairFixture fx) => _fx = fx;
 
-    private void RequireFixture()
-    {
-        Skip.IfNot(_fx.IsAvailable, _fx.UnavailableReason ?? "pair fixture unavailable");
-    }
 
-    [SkippableFact]
+    [Fact]
     public async Task BsdLifecycle_AcrossAxudp_Succeeds_And_Echoes_Banner()
     {
-        RequireFixture();
-
         // Subscribe before opening so we don't race the async events.
         var statusEvents = new List<StatusMessage>();
         var recvEvents = new List<RecvMessage>();
@@ -96,7 +90,7 @@ public class Ax25OverAxudpTests
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task QueryStatusAsync_Returns_Connected_Flag_On_Active_Handle()
     {
         // Real xrouter responds to a successful status query with a
@@ -104,7 +98,6 @@ public class Ax25OverAxudpTests
         // now races the notification path against the error path; this
         // pins that the success branch returns CONNECTED for an
         // established AX.25 stream.
-        RequireFixture();
 
         const string ListenerCall = "G9DUM-7";
         const string CallerCall   = "G8PZT-7";
@@ -139,7 +132,7 @@ public class Ax25OverAxudpTests
         try { await nodeA.CloseAsync(listener); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Binary_Bytes_Round_Trip_Via_Dgram_Through_Real_Xrouter()
     {
         // The library encodes binary payloads as Latin-1 in the JSON
@@ -147,7 +140,6 @@ public class Ax25OverAxudpTests
         // 2-byte UTF-8 sequences on the wire. Verify a payload covering
         // null, low control chars, and the high byte boundary survives
         // a real cross-AXUDP UI-frame round trip byte-for-byte.
-        RequireFixture();
 
         const string AReceiverCall = "G9DUM-6";
         const string BSenderCall   = "G8PZT-6";
@@ -182,13 +174,12 @@ public class Ax25OverAxudpTests
         try { await nodeB.CloseAsync(sender); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Listen_Twice_On_Same_Local_Returns_DuplicateSocket()
     {
         // bind succeeds twice for the same callsign+port pair, but
         // listen on the second one fails with errCode 9 ("Duplicate
         // socket") — the spec error code is hit for real here.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
         var h1 = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
@@ -210,7 +201,7 @@ public class Ax25OverAxudpTests
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Inet_Stream_Bind_And_Connect_To_Local_Service_Succeeds()
     {
         // pfam=inet exercises a different code path inside xrouter
@@ -218,7 +209,6 @@ public class Ax25OverAxudpTests
         // server on 127.0.0.1:8086 and verify the connectReply +
         // CONNECTED status path. Also pins that the connectReply
         // errCode-mirrors-handle quirk is family-agnostic.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
 
@@ -238,7 +228,7 @@ public class Ax25OverAxudpTests
         try { await client.CloseAsync(h); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Raw_Listener_Captures_Encoded_Ax25_Frames()
     {
         // RAW mode listener delivers complete on-the-wire AX.25 frames
@@ -246,7 +236,6 @@ public class Ax25OverAxudpTests
         // rather than the decoded TRACE-style metadata. The library
         // surfaces them through the standard Received event with `data`
         // carrying the raw bytes (encoded as Latin-1 for transport).
-        RequireFixture();
 
         await using var rawClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
         await using var trafficClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
@@ -286,7 +275,7 @@ public class Ax25OverAxudpTests
         try { await rawClient.CloseAsync(rawHandle); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Inet_Stream_Sends_Http_Get_And_Receives_Response_Plus_Close()
     {
         // pfam=inet stream against xrouter's own HTTP server is a
@@ -294,7 +283,6 @@ public class Ax25OverAxudpTests
         // replies with multiple `recv` frames (HTTP/1.0 response) and
         // then issues a server-initiated close — which the library
         // surfaces as the Closed event.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
 
@@ -330,7 +318,7 @@ public class Ax25OverAxudpTests
         Assert.Contains("XrLin", response);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task SendReply_Status_Surfaces_Busy_Flag_On_Large_Loopback_Send()
     {
         // The `status` field in `sendReply` carries the live link
@@ -342,7 +330,6 @@ public class Ax25OverAxudpTests
         // Stays safely under the ~8 KB per-`send` ceiling
         // (xrouter/M0LTE/rhp2lib-net#7) so the request doesn't get
         // silently dropped.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
 
@@ -374,14 +361,13 @@ public class Ax25OverAxudpTests
         try { await client.CloseAsync(h); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Multiple_Concurrent_Streams_On_Same_Rhp_Connection_Each_Get_Independent_Handle()
     {
         // Confirms RHP multiplexing: a single TCP connection can hold
         // multiple distinct AX.25 sockets, each with its own bound
         // local callsign, and each request/reply correlates by id
         // independent of the others.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
 
@@ -405,14 +391,13 @@ public class Ax25OverAxudpTests
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task NetRom_Dgram_Socket_Can_Be_Allocated()
     {
         // pfam=netrom mode=dgram allocates without error on real
         // xrouter. We don't drive a full datagram round-trip here —
         // see NetRomTests for the stream path which actually moves
         // packets — but pin that the family/mode combo is accepted.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
         var h = await client.SocketAsync(ProtocolFamily.NetRom, SocketMode.Dgram);
@@ -420,13 +405,12 @@ public class Ax25OverAxudpTests
         try { await client.CloseAsync(h); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task SeqPkt_Mode_Allocates_Socket_And_Binds()
     {
         // pfam=ax25 mode=seqpkt allocates and binds, but `listen`
         // returns errCode 16 ("Operation not supported") — same
         // shape as DGRAM. Pin the allocation+bind path.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
         var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Seqpkt);
@@ -438,13 +422,12 @@ public class Ax25OverAxudpTests
         try { await client.CloseAsync(h); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Custom_Mode_Allocates_Socket_And_Binds()
     {
         // pfam=ax25 mode=custom — sysop-defined protocol. Allocation
         // and bind both succeed; pin that the mode discriminator is
         // accepted by xrouter.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
         var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Custom);
@@ -453,7 +436,7 @@ public class Ax25OverAxudpTests
         try { await client.CloseAsync(h); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Inet_Dgram_Socket_Allocates()
     {
         // pfam=inet mode=dgram (UDP). Allocation works; bind/sendto
@@ -462,7 +445,6 @@ public class Ax25OverAxudpTests
         // "Invalid local address" on sendto without prior bind. Just
         // pin allocation here; data path is not reliably testable on
         // a freshly-started xrouter.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
         var h = await client.SocketAsync(ProtocolFamily.Inet, SocketMode.Dgram);
@@ -470,7 +452,7 @@ public class Ax25OverAxudpTests
         try { await client.CloseAsync(h); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Connect_To_Unreachable_Eventually_Fires_Disconnect_Status_And_Close()
     {
         // AX.25 connect to a callsign with no route returns a
@@ -480,7 +462,6 @@ public class Ax25OverAxudpTests
         // notification with flags=0 (disconnected) followed by a
         // CLOSE notification on the handle. This is the canonical
         // failure-of-an-asynchronous-connect path.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
 
@@ -508,7 +489,7 @@ public class Ax25OverAxudpTests
         Assert.Equal(h, closedHandle);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Listen_On_Dgram_Socket_Returns_Operation_Not_Supported()
     {
         // Pin: real xrouter responds to `listen` on a DGRAM socket with
@@ -516,7 +497,6 @@ public class Ax25OverAxudpTests
         // still receives matching UI frames whether or not listen was
         // called — see Dgram_Sendto_Delivers_UI_Frame_To_Peer_Listener
         // where the receive path works without a successful listen.
-        RequireFixture();
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
         var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Dgram);
@@ -529,14 +509,13 @@ public class Ax25OverAxudpTests
         try { await client.CloseAsync(h); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task ConnectReply_From_Real_Xrouter_Has_ErrCode_Equal_To_Handle()
     {
         // Pin the actual wire-level quirk that the library now tolerates.
         // We bypass RhpClient and look at the raw connectReply bytes so a
         // future xrouter release that fixes the bug will surface as a
         // failing assertion (and we can drop the workaround).
-        RequireFixture();
 
         using var tcp = new TcpClient();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -579,13 +558,12 @@ public class Ax25OverAxudpTests
         Assert.Equal(handle, connectReply["errCode"]!.GetValue<int>());
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Passive_Listener_Receives_Accept_When_Peer_Connects()
     {
         // Node A binds a fresh callsign, listens.  Node B connects to
         // it.  Node A should fire the Accepted event with a child
         // handle and the connecting station's callsign in `remote`.
-        RequireFixture();
 
         const string ListenerCall = "G9DUM-2";
         const string CallerCall   = "G8PZT";
@@ -618,13 +596,12 @@ public class Ax25OverAxudpTests
         try { await nodeA.CloseAsync(listener); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Peer_Initiated_Close_Fires_Closed_Event_On_Listener_Side()
     {
         // After the peer closes, xrouter delivers a `close` notification
         // (not a closeReply) addressed to the child handle on the
         // listener side. Verify our Closed event surfaces it.
-        RequireFixture();
 
         const string ListenerCall = "G9DUM-3";
         const string CallerCall   = "G8PZT-1";
@@ -658,7 +635,7 @@ public class Ax25OverAxudpTests
         try { await nodeA.CloseAsync(listener); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Trace_Listener_Captures_Sabm_Ua_And_Iframe_With_Decoded_Fields()
     {
         // Open a TRACE listener on the loopback port, generate AX.25
@@ -666,7 +643,6 @@ public class Ax25OverAxudpTests
         // surface decoded fields (frametype, srce/dest, ctrl, pid, ptcl).
         // Crucially, port arrives as a JSON number in TRACE mode — the
         // library now normalises that to string via StringOrIntConverter.
-        RequireFixture();
 
         await using var traceClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
         await using var trafficClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
@@ -712,7 +688,7 @@ public class Ax25OverAxudpTests
         try { await traceClient.CloseAsync(traceHandle); } catch { }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Dgram_Sendto_Delivers_UI_Frame_To_Peer_Listener()
     {
         // AX.25 DGRAM = UI frames. Node A binds a dgram socket and
@@ -721,7 +697,6 @@ public class Ax25OverAxudpTests
         // receives matching UI frames). Node B sends a UI to the
         // bound callsign via sendto. The recv has port as a JSON
         // string, plus local/remote addressing.
-        RequireFixture();
 
         const string AReceiverCall = "G9DUM-4";
         const string BSenderCall   = "G8PZT-3";

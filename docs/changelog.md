@@ -5,15 +5,30 @@ feed, with a short summary per version.
 
 ## Unreleased
 
+* Integration test fixtures fail loudly on Docker startup error
+  rather than silently flagging "unavailable" and skipping every
+  test.  `[SkippableFact]` / `Skip.IfNot(...)` removed across the
+  integration suite; `Xunit.SkippableFact` package dropped.  A
+  green run now actually means the integration paths were
+  exercised — Docker is a hard requirement for that project.
+* Protocol primer extended with the remaining real-xrouter quirks
+  surfaced by the integration suite: `accept.port` is wire-typed
+  as a JSON string, `recv.port` differs between TRACE (number)
+  and DGRAM (string), the additional TRACE recv fields
+  (`tseq`/`ilen`/`pid`/`ptcl`), undocumented `errCode 17 "Not
+  connected"`, and the ~8 KB `send.data` cliff above which xrouter
+  silently drops the request.
 * Initial public docs site (mkdocs-material) wired up at
   <https://rhp2lib.pages.dev/>.
 * New `RhpV2.Client.IntegrationTests` project: drives the published
   `ghcr.io/packethacking/xrouter` image via Testcontainers to pin
-  client behaviour against a real RHP server. Tests skip gracefully
-  when Docker isn't available. Includes a two-container fixture
-  connected by AXUDP that exercises the full data path
-  (`RhpClient → RHP → AX.25 L2 → AXUDP → peer node`) — real SABM/UA
-  handshake, real I-frame send/recv, real orderly close.
+  client behaviour against a real RHP server. Includes a
+  two-container fixture connected by AXUDP that exercises the full
+  data path (`RhpClient → RHP → AX.25 L2 → AXUDP → peer node`) — real
+  SABM/UA handshake, real I-frame send/recv, real orderly close.
+  Requires a running Docker daemon; the fixtures fail loudly on
+  startup error rather than silently skipping, so a green run
+  actually means the integration paths were exercised.
 * `connectReply` workaround: real xrouter returns a successful
   `connectReply` with `errCode = handle` (rather than 0) but
   `errText = "Ok"`. The library now treats any `connectReply` whose

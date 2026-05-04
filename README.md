@@ -89,7 +89,7 @@ dotnet test
 * **Unit suite** (49 tests; runs everywhere): framing, codec,
   polymorphic JSON dispatch, correlated request/reply, server-pushed
   notifications, transport teardown.
-* **Integration suite** (36 tests; requires Docker): pulls
+* **Integration suite** (36 tests; **requires Docker**): pulls
   `ghcr.io/packethacking/xrouter` via Testcontainers and pins the
   client against the real RHP server. A two-container fixture
   links the nodes by AXUDP and seeds the NetRom routing table so
@@ -106,5 +106,6 @@ dotnet test
   connect-to-unreachable lifecycle (FRACK retries → status=0 →
   close); BUSY flag in `sendReply.status` on large writes;
   `Duplicate socket` on duplicate listen; handle namespace global
-  across connections. Tests skip gracefully when Docker isn't
-  reachable, so the suite is green without it.
+  across connections. The fixture fails loudly if Docker isn't
+  reachable — there's no silent skip, so a green run actually
+  means the integration paths were exercised.

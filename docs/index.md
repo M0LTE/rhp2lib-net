@@ -31,17 +31,19 @@
     ---
 
     `MockRhpServer` lets your code talk to a real TCP socket without an
-    XRouter.  31 xunit tests in the project use it; yours can too.
+    XRouter, byte-for-byte equivalent on the wire to what the live
+    server emits.
 
     [:octicons-arrow-right-24: Mock server](testing/mock-server.md)
 
--   :material-file-document-outline:{ .lg .middle } **Spec-faithful**
+-   :material-file-document-outline:{ .lg .middle } **Spec-faithful, reality-tested**
 
     ---
 
-    Implements [PWP-0222][pwp-0222] and [PWP-0245][pwp-0245] verbatim,
-    with quirks (`errCode` vs `errcode`, `ConnectReply` PascalCase) tolerated
-    on read.
+    Implements [PWP-0222][pwp-0222] and [PWP-0245][pwp-0245].  The
+    project's integration suite drives a real XRouter via Testcontainers;
+    the [protocol primer](protocol.md) catalogues the deltas observed
+    between the published spec and live wire format.
 
     [:octicons-arrow-right-24: Protocol primer](protocol.md)
 
@@ -89,15 +91,17 @@ APRS, raw TCP, ICMP and more, by talking JSON to XRouter.
 
 | Path | Purpose |
 |------|---------|
-| [`src/RhpV2.Client/`][gh-lib]            | The library + `MockRhpServer`. |
-| [`src/RhpV2.Tools/`][gh-tools]           | The `rhp` CLI. |
-| [`tests/RhpV2.Client.Tests/`][gh-tests]  | xunit suite (31 tests). |
-| [`.github/workflows/`][gh-wf]            | CI, release, docs. |
+| [`src/RhpV2.Client/`][gh-lib]                 | The library + `MockRhpServer`. |
+| [`src/RhpV2.Tools/`][gh-tools]                | The `rhp` CLI. |
+| [`tests/RhpV2.Client.Tests/`][gh-tests]       | xunit unit suite (mock-driven). |
+| [`tests/RhpV2.Client.IntegrationTests/`][gh-itests] | xunit integration suite (Testcontainers + real XRouter). |
+| [`.github/workflows/`][gh-wf]                 | CI, release, docs. |
 
-  [gh-lib]:   https://github.com/M0LTE/rhp2lib-net/tree/main/src/RhpV2.Client
-  [gh-tools]: https://github.com/M0LTE/rhp2lib-net/tree/main/src/RhpV2.Tools
-  [gh-tests]: https://github.com/M0LTE/rhp2lib-net/tree/main/tests/RhpV2.Client.Tests
-  [gh-wf]:    https://github.com/M0LTE/rhp2lib-net/tree/main/.github/workflows
+  [gh-lib]:    https://github.com/M0LTE/rhp2lib-net/tree/main/src/RhpV2.Client
+  [gh-tools]:  https://github.com/M0LTE/rhp2lib-net/tree/main/src/RhpV2.Tools
+  [gh-tests]:  https://github.com/M0LTE/rhp2lib-net/tree/main/tests/RhpV2.Client.Tests
+  [gh-itests]: https://github.com/M0LTE/rhp2lib-net/tree/main/tests/RhpV2.Client.IntegrationTests
+  [gh-wf]:     https://github.com/M0LTE/rhp2lib-net/tree/main/.github/workflows
 
 ## Status
 
