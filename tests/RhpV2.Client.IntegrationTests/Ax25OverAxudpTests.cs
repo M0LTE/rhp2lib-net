@@ -239,6 +239,50 @@ public class Ax25OverAxudpTests
     }
 
     [SkippableFact]
+    public async Task SendReply_Status_Surfaces_Busy_Flag_On_Large_Loopback_Send()
+    {
+        // The `status` field in `sendReply` carries the live link
+        // state at reply time. A few-KB send through the loopback
+        // port to the node's own command processor reliably trips
+        // the BUSY bit. Pin that the library's StatusFlags enum
+        // surfaces it correctly.
+        //
+        // Stays safely under the ~8 KB per-`send` ceiling
+        // (xrouter/M0LTE/rhp2lib-net#7) so the request doesn't get
+        // silently dropped.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var connectedTcs = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StatusChanged += (_, e) =>
+        {
+            if (e.Message.Flags is int f && (f & (int)StatusFlags.Connected) != 0)
+                connectedTcs.TrySetResult(true);
+        };
+
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await client.BindAsync(h, local: "G9DUM", port: "1");
+        await client.ConnectAsync(h, remote: _fx.NodeACallsign);
+        await connectedTcs.Task.WaitAsync(ConnectTimeout);
+
+        // Small send — CONNECTED, not BUSY.
+        var smallReply = await client.SendOnHandleAsync(h, "x\r");
+        Assert.NotNull(smallReply.Status);
+        Assert.True(((StatusFlags)smallReply.Status!.Value & StatusFlags.Connected) != 0);
+
+        // 4 KB send — fills the AX.25 send window, BUSY is asserted.
+        var bigReply = await client.SendOnHandleAsync(h, new string('X', 4096));
+        Assert.NotNull(bigReply.Status);
+        var bigFlags = (StatusFlags)bigReply.Status!.Value;
+        Assert.True((bigFlags & StatusFlags.Busy) != 0,
+            $"expected BUSY in {bigFlags} after a 4 KB send");
+
+        try { await client.CloseAsync(h); } catch { }
+    }
+
+    [SkippableFact]
     public async Task Listen_On_Dgram_Socket_Returns_Operation_Not_Supported()
     {
         // Pin: real xrouter responds to `listen` on a DGRAM socket with

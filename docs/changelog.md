@@ -57,6 +57,13 @@ feed, with a short summary per version.
   `send` against a stream socket whose downlink is not connected.
   The PWP-0222 / PWP-0245 error tables stop at 16; added to the
   client's enum and `Text(...)` lookup.
+* Integration tests cover binary-data round-trip via DGRAM (proves
+  the library's Latin-1 wire encoding survives real xrouter's
+  UTF-8-on-the-wire path), duplicate-listen detection
+  (`errCode 9 "Duplicate socket"`), `pfam=inet` stream connect to
+  xrouter's embedded TCP/IP stack, the per-handle `BUSY` flag in
+  `sendReply.status` after a few-KB write, and the
+  "operation not supported" response to `listen` on a DGRAM socket.
 * Wire-format alignment: every reply now serialises `errCode` /
   `errText` with capital C/T, matching what xrouter actually emits.
   The published spec only mentions this as an AUTHREPLY quirk, but
