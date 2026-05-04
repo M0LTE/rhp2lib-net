@@ -64,6 +64,36 @@ feed, with a short summary per version.
   xrouter's embedded TCP/IP stack, the per-handle `BUSY` flag in
   `sendReply.status` after a few-KB write, and the
   "operation not supported" response to `listen` on a DGRAM socket.
+* Two-container fixture rework: `XRouterPairFixture` picks a fresh
+  random `/24` subnet per instance (so two test classes can each
+  hold their own pair simultaneously without Docker network
+  conflicts), generates the xrouter config from a runtime template
+  with the chosen IPs, and seeds an `XRNODES` file with a locked,
+  high-quality NetRom route to the peer. Without `XRNODES`, NetRom
+  routing requires a `NODESINTERVAL`-window wait (minutes) before
+  routes propagate.
+* Real-xrouter NetRom coverage: the new `NetRomTests` class drives
+  a NetRom stream connect from Node A to Node B's NODECALL,
+  routing through the underlying AX.25 link, and verifies a
+  `i` / banner round-trip end-to-end.
+* Real-xrouter RAW coverage: a RAW-mode listener surfaces complete
+  on-the-wire AX.25 frames (callsigns shifted-ASCII encoded, raw
+  ctrl/PID/info concatenated) — distinct from TRACE-mode which
+  decodes those fields.
+* Real-xrouter inet TCP coverage: a full HTTP/1.0 GET to xrouter's
+  embedded HTTP server, including the server-initiated `close`
+  notification at end of response.
+* Real-xrouter connect-failure lifecycle: `connectReply` returns
+  `errText="Ok"` immediately, the SABM/UA handshake retries
+  asynchronously, and after the FRACK budget is exhausted xrouter
+  pushes `status flags=0` followed by `close`. The library handles
+  the asymmetric request/notification pair correctly.
+* Mode coverage: `seqpkt` and `custom` socket allocation pinned;
+  `seqpkt` `listen` returns `errCode 16 "Operation not supported"`
+  matching DGRAM behaviour.
+* Concurrent multiplexing pinned: a single RHP TCP connection can
+  hold N independent AX.25 stream sockets, each with its own bound
+  callsign and id-correlated reply path.
 * Wire-format alignment: every reply now serialises `errCode` /
   `errText` with capital C/T, matching what xrouter actually emits.
   The published spec only mentions this as an AUTHREPLY quirk, but

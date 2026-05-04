@@ -89,12 +89,22 @@ dotnet test
 * **Unit suite** (49 tests; runs everywhere): framing, codec,
   polymorphic JSON dispatch, correlated request/reply, server-pushed
   notifications, transport teardown.
-* **Integration suite** (27 tests; requires Docker): pulls
+* **Integration suite** (36 tests; requires Docker): pulls
   `ghcr.io/packethacking/xrouter` via Testcontainers and pins the
-  client against the real RHP server. Includes a two-container
-  AXUDP-linked fixture that exercises full AX.25 lifecycle paths —
-  cross-network connect / send / receive / close, passive listener
-  accepting an inbound connection, peer-initiated close,
-  TRACE-mode frame capture (SABM/UA/I/RR with decoded fields),
-  and DGRAM (UI frame) sendto/recv. Tests skip gracefully when
-  Docker isn't reachable, so the suite is green without it.
+  client against the real RHP server. A two-container fixture
+  links the nodes by AXUDP and seeds the NetRom routing table so
+  routing works on first boot. Coverage spans:
+  AX.25 stream connect / send / recv / close (real SABM/UA/I/RR);
+  passive listener accepting an inbound peer connection;
+  peer-initiated close firing `Closed`;
+  TRACE-mode frame capture (`frametype`, `srce`/`dest`, `ctrl`,
+  `pid`, `ptcl`); RAW-mode complete on-the-wire frames;
+  DGRAM (UI frame) `sendto` with binary-byte round-trip;
+  NetRom stream connect through to the peer's command processor;
+  `pfam=inet` stream GET to xrouter's HTTP server with
+  server-initiated close; `seqpkt` / `custom` socket allocation;
+  connect-to-unreachable lifecycle (FRACK retries → status=0 →
+  close); BUSY flag in `sendReply.status` on large writes;
+  `Duplicate socket` on duplicate listen; handle namespace global
+  across connections. Tests skip gracefully when Docker isn't
+  reachable, so the suite is green without it.
