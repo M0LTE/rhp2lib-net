@@ -33,6 +33,17 @@ changes; everything else is additive.
 
 ### Added
 
+* `RhpV2.Client` now multi-targets `net8.0` and `net10.0`. The
+  package ships both `lib/net8.0/` and `lib/net10.0/` assemblies;
+  consumers on .NET 8, 9 or 10 pick up a matching one via NuGet's
+  TFM resolution. The CLI (`RhpV2.Tools`) stays single-targeted on
+  net10.0 since it's a self-contained binary, not a library.
+* `release.yml` gained a `publish-nuget` job that pushes the packed
+  `.nupkg` to nuget.org on tag-triggered runs. The push is gated on
+  the `NUGET_API_KEY` repository secret — if it's not set, the job
+  logs a warning and exits cleanly so the rest of the release flow
+  still completes (so the workflow can be exercised before the key
+  is configured).
 * New `RhpV2.Client.IntegrationTests` project: drives the published
   `ghcr.io/packethacking/xrouter` image via Testcontainers to pin
   client behaviour against a real RHP server. Includes a

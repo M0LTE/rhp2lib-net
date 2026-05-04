@@ -5,7 +5,10 @@ binary or (b) consuming the `RhpV2.Client` library from your own .NET app.
 
 ## Requirements
 
-* **.NET 10 SDK** — the project targets `net10.0`.
+* **.NET 8 SDK or newer** — the `RhpV2.Client` library multi-targets
+  `net8.0` and `net10.0`, so any consuming app on .NET 8 / 9 / 10 can
+  reference it.  Building the repo end-to-end (CLI + tests) requires
+  the .NET 10 SDK.
 * **An RHPv2 endpoint** — typically an XRouter node listening on TCP `9000`.
   No XRouter? Run [`rhp serve`](cli/serve.md) to spin up an in-process
   mock with the same wire protocol.
@@ -71,15 +74,22 @@ dotnet run --project src/RhpV2.Tools -- probe --host 127.0.0.1
 
 ## Option B: use the library
 
-The `RhpV2.Client` package is published to GitHub Releases as a `.nupkg`.
-A public NuGet feed is on the roadmap; for now grab the asset and add it
-to a local feed, or reference the project source directly.
+```sh
+dotnet add package RhpV2.Client
+```
+
+or in your `.csproj`:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="RhpV2.Client" Version="0.1.0" />
+  <PackageReference Include="RhpV2.Client" Version="0.2.0" />
 </ItemGroup>
 ```
+
+The package multi-targets `net8.0` and `net10.0`; consumers on .NET 8,
+9, or 10 all get a matching assembly via NuGet's TFM resolution.  The
+.nupkg is also attached to every [GitHub Release](https://github.com/M0LTE/rhp2lib-net/releases)
+if you need to pin via a local feed.
 
 Hello, world:
 

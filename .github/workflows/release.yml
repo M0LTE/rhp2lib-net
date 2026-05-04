@@ -151,6 +151,60 @@ jobs:
           path: artifacts/*.nupkg
           if-no-files-found: error
 
+  publish-nuget:
+    name: publish NuGet
+    needs: [resolve, pack-nuget]
+    runs-on: ubuntu-latest
+    # Tag-triggered release pushes to nuget.org. Manual workflow_dispatch
+    # runs build the package but don't publish it (so testing the
+    # workflow doesn't burn an irreversible nuget.org version).
+    if: github.event_name == 'push'
+    steps:
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Download NuGet artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget
+          path: nuget
+
+      # Push to nuget.org. Gated on the NUGET_API_KEY secret being
+      # configured — if it's empty the push is skipped (with a log
+      # warning) so the rest of the release flow still completes. Set
+      # the secret in repo settings → Secrets and variables → Actions
+      # → New repository secret, name `NUGET_API_KEY`, value the key
+      # from https://www.nuget.org/account/apikeys (scoped to
+      # `RhpV2.Client` package, "Push new packages and package
+      # versions" permission).
+      - name: Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NUGET_API_KEY}" ]; then
+            echo "::warning::NUGET_API_KEY secret is not set — skipping nuget.org push."
+            echo "Configure the secret in repo settings to enable publishing."
+            ls -la nuget/
+            exit 0
+          fi
+          shopt -s nullglob
+          pkgs=(nuget/*.nupkg)
+          if [ ${#pkgs[@]} -eq 0 ]; then
+            echo "::error::No .nupkg files found under nuget/."
+            exit 1
+          fi
+          for pkg in "${pkgs[@]}"; do
+            echo "Pushing $pkg"
+            dotnet nuget push "$pkg" \
+              --source https://api.nuget.org/v3/index.json \
+              --api-key "${NUGET_API_KEY}" \
+              --skip-duplicate
+          done
+
   release:
     name: github release
     needs: [resolve, publish-cli, pack-nuget]

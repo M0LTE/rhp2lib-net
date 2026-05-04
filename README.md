@@ -1,11 +1,14 @@
 # rhp2lib-net
 
-A C# / .NET 10 client library, test harness, and command-line toolkit for
-**RHPv2** — the JSON-over-TCP "Remote Host Protocol" used by XRouter to expose
-its multi-protocol packet engine to applications.
+A C# client library (multi-targets **.NET 8** and **.NET 10**), test harness,
+and command-line toolkit for **RHPv2** — the JSON-over-TCP "Remote Host
+Protocol" used by XRouter to expose its multi-protocol packet engine to
+applications.
 
 📖 **Full documentation:** <https://rhp2lib.pages.dev/>
-📦 **Downloads:** [GitHub Releases](https://github.com/M0LTE/rhp2lib-net/releases) — self-contained `rhp` binaries for Linux / Windows / macOS, plus the `RhpV2.Client` NuGet.
+📦 **Install:** `dotnet add package RhpV2.Client` &nbsp;·&nbsp;
+self-contained `rhp` CLI binaries for Linux / Windows / macOS at
+[GitHub Releases](https://github.com/M0LTE/rhp2lib-net/releases).
 
 The protocol is described in
 [PWP-0222](https://wiki.oarc.uk/packet:white-papers:pwp-0222) and
