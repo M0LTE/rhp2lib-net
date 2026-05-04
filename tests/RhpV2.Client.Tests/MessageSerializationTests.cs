@@ -111,11 +111,52 @@ public class MessageSerializationTests
     [Fact]
     public void Accept_Decodes_Child_And_Remote()
     {
+        // PWP-0222 spec example writes port as an unquoted number.
         var wire = """{"type":"accept","seqno":3,"handle":1,"child":2,"remote":"M0XYZ","local":"G8PZT","port":2}""";
         var msg = (AcceptMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
         Assert.Equal(1, msg.Handle);
         Assert.Equal(2, msg.Child);
         Assert.Equal("M0XYZ", msg.Remote);
+        Assert.Equal("2", msg.Port);
+    }
+
+    [Fact]
+    public void Accept_Decodes_Port_From_Real_Xrouter_String_Form()
+    {
+        // Real xrouter sends port as a JSON string, not an unquoted
+        // number. The library normalises both forms to string?.
+        var wire = """{"type":"accept","seqno":3,"handle":1,"child":2,"remote":"M0XYZ","local":"G8PZT","port":"2"}""";
+        var msg = (AcceptMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
+        Assert.Equal("2", msg.Port);
+    }
+
+    [Fact]
+    public void Recv_TraceMode_Decodes_Numeric_Port_And_Extra_Fields()
+    {
+        // Real xrouter TRACE-mode recv frames carry port as a JSON
+        // number (unlike DGRAM where port is a string), plus tseq, ilen,
+        // pid, ptcl that the spec doesn't enumerate.
+        var wire = """{"type":"recv","seqno":1,"handle":5,"action":"sent","port":1,"srce":"G9DUM","dest":"G9DUM-1","ctrl":0,"frametype":"I","rseq":0,"tseq":0,"cr":"C","ilen":2,"pid":240,"ptcl":"DATA","data":"i\r"}""";
+        var msg = (RecvMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
+        Assert.Equal("1", msg.Port);          // numeric on the wire, string in the model
+        Assert.Equal(0, msg.Tseq);
+        Assert.Equal(2, msg.Ilen);
+        Assert.Equal(240, msg.Pid);
+        Assert.Equal("DATA", msg.Ptcl);
+        Assert.Equal("I", msg.FrameType);
+    }
+
+    [Fact]
+    public void Recv_DgramMode_Decodes_String_Port_And_Addressing()
+    {
+        // Real xrouter DGRAM-mode recv carries port as a JSON string
+        // and includes local/remote addressing.
+        var wire = """{"type":"recv","handle":7,"action":"rcvd","port":"2","remote":"G8PZT-3","local":"G9DUM-4","data":"hello UI\r"}""";
+        var msg = (RecvMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
+        Assert.Equal("2", msg.Port);
+        Assert.Equal("G8PZT-3", msg.Remote);
+        Assert.Equal("G9DUM-4", msg.Local);
+        Assert.Equal("hello UI\r", msg.Data);
     }
 
     [Fact]

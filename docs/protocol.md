@@ -185,11 +185,6 @@ surfaces non-zero replies via [`RhpServerException`](library/errors.md).
   after the API call, but the actual SABM/UA handshake hasn't happened
   yet.  The handshake outcome is reported later via `status` notifications
   (`flags=Connected` on success, link state changes thereafter).
-* The combined `open` + `flags=Active` form **does not establish a
-  working AX.25 stream** on this xrouter version — the openReply
-  succeeds and a status notification with `Connected` follows, but the
-  handle is invalid for any subsequent operations.  Use the BSD
-  lifecycle (`socket → bind → connect`) for AX.25 active connections.
 * Unknown `type` values surface as `UnknownMessage`, preserving the raw
   JSON for forward compatibility.  The real xrouter happens to manufacture
   a reply for unknown types by appending `Reply` to whatever string it

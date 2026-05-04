@@ -227,18 +227,42 @@ public sealed class RecvMessage : RhpMessage
     [JsonPropertyName("handle")] public int Handle { get; set; }
     [JsonPropertyName("data")] public string Data { get; set; } = string.Empty;
 
-    // DGRAM:
-    [JsonPropertyName("port")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Port { get; set; }
+    // DGRAM addressing — also returned for inbound UI frames. Real
+    // xrouter sends `port` as a JSON string in DGRAM mode and as a JSON
+    // number in TRACE mode; the converter normalises both.
+    [JsonPropertyName("port")]
+    [JsonConverter(typeof(StringOrIntConverter))]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Port { get; set; }
 
-    // RAW / TRACE:
+    [JsonPropertyName("local")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Local { get; set; }
+
+    [JsonPropertyName("remote")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Remote { get; set; }
+
+    // RAW / TRACE metadata — populated when the listener was opened in
+    // RAW or TRACE mode.
     [JsonPropertyName("action")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Action { get; set; }
     [JsonPropertyName("srce")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Srce { get; set; }
     [JsonPropertyName("dest")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Dest { get; set; }
     [JsonPropertyName("ctrl")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Ctrl { get; set; }
     [JsonPropertyName("frametype")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? FrameType { get; set; }
     [JsonPropertyName("rseq")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Rseq { get; set; }
+    [JsonPropertyName("tseq")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Tseq { get; set; }
     [JsonPropertyName("cr")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Cr { get; set; }
     [JsonPropertyName("pf")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Pf { get; set; }
+
+    /// <summary>Information field length (TRACE I-frames).</summary>
+    [JsonPropertyName("ilen")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Ilen { get; set; }
+
+    /// <summary>AX.25 PID byte (TRACE I-frames).</summary>
+    [JsonPropertyName("pid")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Pid { get; set; }
+
+    /// <summary>Decoded protocol name e.g. "DATA", "NETROM", "IP" (TRACE).</summary>
+    [JsonPropertyName("ptcl")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Ptcl { get; set; }
 }
 
 // ---------------------------------------------------------------------------
@@ -252,7 +276,16 @@ public sealed class AcceptMessage : RhpMessage
     [JsonPropertyName("child")] public int Child { get; set; }
     [JsonPropertyName("remote")] public string? Remote { get; set; }
     [JsonPropertyName("local")] public string? Local { get; set; }
-    [JsonPropertyName("port")] public int? Port { get; set; }
+
+    /// <summary>
+    /// Source port the inbound connection arrived on.  Real xrouter
+    /// sends this as a JSON string ("2") even though PWP-0222's example
+    /// shows an unquoted number; the library normalises both shapes via
+    /// <see cref="StringOrIntConverter"/>.
+    /// </summary>
+    [JsonPropertyName("port")]
+    [JsonConverter(typeof(StringOrIntConverter))]
+    public string? Port { get; set; }
 }
 
 public sealed class StatusMessage : RhpMessage

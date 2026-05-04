@@ -86,12 +86,15 @@ dotnet build
 dotnet test
 ```
 
-* **Unit suite** (43 tests; runs everywhere): framing, codec,
+* **Unit suite** (46 tests; runs everywhere): framing, codec,
   polymorphic JSON dispatch, correlated request/reply, server-pushed
   notifications, transport teardown.
-* **Integration suite** (17 tests; requires Docker): pulls
+* **Integration suite** (22 tests; requires Docker): pulls
   `ghcr.io/packethacking/xrouter` via Testcontainers and pins the
-  client against the real RHP server, including a two-container
-  AXUDP-linked fixture that exercises a full AX.25 connect / send /
-  receive / close cycle. Tests skip gracefully when Docker isn't
-  reachable, so the suite is green without it.
+  client against the real RHP server. Includes a two-container
+  AXUDP-linked fixture that exercises full AX.25 lifecycle paths —
+  cross-network connect / send / receive / close, passive listener
+  accepting an inbound connection, peer-initiated close,
+  TRACE-mode frame capture (SABM/UA/I/RR with decoded fields),
+  and DGRAM (UI frame) sendto/recv. Tests skip gracefully when
+  Docker isn't reachable, so the suite is green without it.

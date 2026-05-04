@@ -97,6 +97,27 @@ public class Ax25OverAxudpTests
     }
 
     [SkippableFact]
+    public async Task Listen_On_Dgram_Socket_Returns_Operation_Not_Supported()
+    {
+        // Pin: real xrouter responds to `listen` on a DGRAM socket with
+        // errCode 16 ("Operation not supported"). The DGRAM socket
+        // still receives matching UI frames whether or not listen was
+        // called — see Dgram_Sendto_Delivers_UI_Frame_To_Peer_Listener
+        // where the receive path works without a successful listen.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Dgram);
+        await client.BindAsync(h, local: "G9DUM-9", port: "2");
+
+        var ex = await Assert.ThrowsAsync<RhpServerException>(
+            async () => await client.ListenAsync(h));
+        Assert.Equal(RhpErrorCode.OperationNotSupported, ex.ErrorCode);
+
+        try { await client.CloseAsync(h); } catch { }
+    }
+
+    [SkippableFact]
     public async Task ConnectReply_From_Real_Xrouter_Has_ErrCode_Equal_To_Handle()
     {
         // Pin the actual wire-level quirk that the library now tolerates.
@@ -144,6 +165,186 @@ public class Ax25OverAxudpTests
         Assert.Equal(handle, connectReply["handle"]!.GetValue<int>());
         // The bug: errCode mirrors handle on success rather than being 0.
         Assert.Equal(handle, connectReply["errCode"]!.GetValue<int>());
+    }
+
+    [SkippableFact]
+    public async Task Passive_Listener_Receives_Accept_When_Peer_Connects()
+    {
+        // Node A binds a fresh callsign, listens.  Node B connects to
+        // it.  Node A should fire the Accepted event with a child
+        // handle and the connecting station's callsign in `remote`.
+        RequireFixture();
+
+        const string ListenerCall = "G9DUM-2";
+        const string CallerCall   = "G8PZT";
+
+        await using var nodeA = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        await using var nodeB = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeBRhpPort);
+
+        var acceptedTcs = new TaskCompletionSource<AcceptMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        nodeA.Accepted += (_, e) => acceptedTcs.TrySetResult(e.Message);
+
+        var listener = await nodeA.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await nodeA.BindAsync(listener, local: ListenerCall, port: "2");
+        await nodeA.ListenAsync(listener);
+
+        var caller = await nodeB.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await nodeB.BindAsync(caller, local: CallerCall, port: "2");
+        await nodeB.ConnectAsync(caller, remote: ListenerCall);
+
+        var accept = await acceptedTcs.Task.WaitAsync(ConnectTimeout);
+        Assert.Equal(listener, accept.Handle);
+        Assert.True(accept.Child > 0);
+        Assert.Equal(CallerCall, accept.Remote);
+        Assert.Equal(ListenerCall, accept.Local);
+        // Real xrouter emits port as a JSON string. The library normalises
+        // that to a string regardless of source-side casing.
+        Assert.Equal("2", accept.Port);
+
+        try { await nodeB.CloseAsync(caller); } catch { }
+        try { await nodeA.CloseAsync(listener); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task Peer_Initiated_Close_Fires_Closed_Event_On_Listener_Side()
+    {
+        // After the peer closes, xrouter delivers a `close` notification
+        // (not a closeReply) addressed to the child handle on the
+        // listener side. Verify our Closed event surfaces it.
+        RequireFixture();
+
+        const string ListenerCall = "G9DUM-3";
+        const string CallerCall   = "G8PZT-1";
+
+        await using var nodeA = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        await using var nodeB = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeBRhpPort);
+
+        var acceptedTcs = new TaskCompletionSource<AcceptMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var closedTcs = new TaskCompletionSource<int>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        nodeA.Accepted += (_, e) => acceptedTcs.TrySetResult(e.Message);
+        nodeA.Closed += (_, e) => closedTcs.TrySetResult(e.Handle);
+
+        var listener = await nodeA.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await nodeA.BindAsync(listener, local: ListenerCall, port: "2");
+        await nodeA.ListenAsync(listener);
+
+        var caller = await nodeB.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await nodeB.BindAsync(caller, local: CallerCall, port: "2");
+        await nodeB.ConnectAsync(caller, remote: ListenerCall);
+
+        var accept = await acceptedTcs.Task.WaitAsync(ConnectTimeout);
+
+        // Caller closes — listener should see a Close on the child handle.
+        await nodeB.CloseAsync(caller);
+
+        var closedHandle = await closedTcs.Task.WaitAsync(DataTimeout);
+        Assert.Equal(accept.Child, closedHandle);
+
+        try { await nodeA.CloseAsync(listener); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task Trace_Listener_Captures_Sabm_Ua_And_Iframe_With_Decoded_Fields()
+    {
+        // Open a TRACE listener on the loopback port, generate AX.25
+        // traffic on the same port, and verify the trace recv frames
+        // surface decoded fields (frametype, srce/dest, ctrl, pid, ptcl).
+        // Crucially, port arrives as a JSON number in TRACE mode — the
+        // library now normalises that to string via StringOrIntConverter.
+        RequireFixture();
+
+        await using var traceClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        await using var trafficClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var sabmSeen = new TaskCompletionSource<RecvMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var iframeSeen = new TaskCompletionSource<RecvMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        traceClient.Received += (_, e) =>
+        {
+            if (e.Message.FrameType == "C")     sabmSeen.TrySetResult(e.Message);
+            if (e.Message.FrameType == "I" && !string.IsNullOrEmpty(e.Message.Data))
+                iframeSeen.TrySetResult(e.Message);
+        };
+
+        var traceHandle = await traceClient.OpenAsync(
+            ProtocolFamily.Ax25, SocketMode.Trace,
+            port: "1",
+            flags: OpenFlags.TraceIncoming | OpenFlags.TraceOutgoing | OpenFlags.TraceSupervisory);
+        Assert.True(traceHandle > 0);
+
+        // Drive AX.25 traffic on port 1 (loopback) by connecting to the
+        // node's own callsign — that lands at the command processor.
+        var caller = await trafficClient.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await trafficClient.BindAsync(caller, local: "G9DUM", port: "1");
+        await trafficClient.ConnectAsync(caller, remote: _fx.NodeACallsign);
+        await Task.Delay(500);
+        await trafficClient.SendOnHandleAsync(caller, "i\r");
+
+        var sabm = await sabmSeen.Task.WaitAsync(ConnectTimeout);
+        Assert.Equal("1", sabm.Port);              // numeric on the wire, string in the model
+        Assert.Equal("C", sabm.FrameType);
+        Assert.Equal("G9DUM", sabm.Srce);
+        Assert.Equal(_fx.NodeACallsign, sabm.Dest);
+
+        var iframe = await iframeSeen.Task.WaitAsync(DataTimeout);
+        Assert.Equal("I", iframe.FrameType);
+        Assert.Equal("DATA", iframe.Ptcl);
+        Assert.NotNull(iframe.Pid);
+        Assert.NotNull(iframe.Ilen);
+
+        try { await trafficClient.CloseAsync(caller); } catch { }
+        try { await traceClient.CloseAsync(traceHandle); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task Dgram_Sendto_Delivers_UI_Frame_To_Peer_Listener()
+    {
+        // AX.25 DGRAM = UI frames. Node A binds a dgram socket and
+        // listens passively (xrouter rejects `listen` on dgram with
+        // "Operation not supported", but the bound socket still
+        // receives matching UI frames). Node B sends a UI to the
+        // bound callsign via sendto. The recv has port as a JSON
+        // string, plus local/remote addressing.
+        RequireFixture();
+
+        const string AReceiverCall = "G9DUM-4";
+        const string BSenderCall   = "G8PZT-3";
+        const string Payload       = "hello UI\r";
+
+        await using var nodeA = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        await using var nodeB = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeBRhpPort);
+
+        var recvTcs = new TaskCompletionSource<RecvMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        nodeA.Received += (_, e) =>
+        {
+            if (e.Message.Data == Payload) recvTcs.TrySetResult(e.Message);
+        };
+
+        var receiver = await nodeA.SocketAsync(ProtocolFamily.Ax25, SocketMode.Dgram);
+        await nodeA.BindAsync(receiver, local: AReceiverCall, port: "2");
+
+        var sender = await nodeB.SocketAsync(ProtocolFamily.Ax25, SocketMode.Dgram);
+        await nodeB.BindAsync(sender, local: BSenderCall, port: "2");
+        await nodeB.SendToAsync(sender,
+            data: Payload,
+            port: "2",
+            local: BSenderCall,
+            remote: AReceiverCall);
+
+        var recv = await recvTcs.Task.WaitAsync(DataTimeout);
+        Assert.Equal(receiver, recv.Handle);
+        Assert.Equal(BSenderCall, recv.Remote);
+        Assert.Equal(AReceiverCall, recv.Local);
+        Assert.Equal("2", recv.Port);   // string in DGRAM mode
+        Assert.Equal(Payload, recv.Data);
+
+        try { await nodeA.CloseAsync(receiver); } catch { }
+        try { await nodeB.CloseAsync(sender); } catch { }
     }
 
     private static async Task SendFrame(NetworkStream stream, JsonObject obj)

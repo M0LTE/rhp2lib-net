@@ -118,7 +118,7 @@ public class RhpClientTests
             Child = 9999,
             Remote = "M0XYZ",
             Local = "G8PZT",
-            Port = 1,
+            Port = "1",
         });
 
         var got = await tcs.Task.WaitAsync(DefaultTimeout);
