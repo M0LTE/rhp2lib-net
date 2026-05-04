@@ -29,10 +29,30 @@ namespace RhpV2.Client.IntegrationTests;
 public sealed class XRouterPairFixture : IAsyncLifetime
 {
     private const string Image = "ghcr.io/packethacking/xrouter";
-    private const string Subnet = "10.99.99.0/24";
 
-    public string NodeAContainerIp { get; } = "10.99.99.2";
-    public string NodeBContainerIp { get; } = "10.99.99.3";
+    // Pick a random /24 inside 10.0.0.0/8 per fixture instance — multiple
+    // fixtures can run simultaneously (xunit parallelises test classes
+    // by default) and each needs its own non-overlapping subnet on the
+    // Docker daemon. Avoid 10.99.99.x since older versions of this code
+    // used it as a hard-coded literal.
+    private static readonly Random Rng = new();
+    private readonly string _subnetPrefix;
+    public string Subnet { get; }
+    public string NodeAContainerIp { get; }
+    public string NodeBContainerIp { get; }
+
+    public XRouterPairFixture()
+    {
+        // 10.<rand>.<rand>.0/24 with rand chosen to avoid common
+        // collision ranges (Docker default bridge is 172.17.0.0/16,
+        // we stay in the 10/8 RFC1918 range).
+        var b = Rng.Next(50, 250);
+        var c = Rng.Next(50, 250);
+        _subnetPrefix = $"10.{b}.{c}";
+        Subnet = $"{_subnetPrefix}.0/24";
+        NodeAContainerIp = $"{_subnetPrefix}.2";
+        NodeBContainerIp = $"{_subnetPrefix}.3";
+    }
 
     /// <summary>NODECALL of node A.</summary>
     public string NodeACallsign => "G9DUM-1";
@@ -73,8 +93,30 @@ public sealed class XRouterPairFixture : IAsyncLifetime
                 .Build();
             await _network.CreateAsync().ConfigureAwait(false);
 
-            _nodeA = BuildNode("NodeA.CFG", NodeAContainerIp);
-            _nodeB = BuildNode("NodeB.CFG", NodeBContainerIp);
+            _nodeA = BuildNode(
+                nodeCall: NodeACallsign,
+                consoleCall: NodeAConsoleCallsign,
+                nodeAlias: "NODEA",
+                chatCall: "G9DUM-8",
+                chatAlias: "NACHT",
+                staticIp: NodeAContainerIp,
+                peerIp: NodeBContainerIp,
+                udpLocal: 10093,
+                udpRemote: 10094,
+                peerNodeCall: NodeBCallsign,
+                peerNodeAlias: "NODEB");
+            _nodeB = BuildNode(
+                nodeCall: NodeBCallsign,
+                consoleCall: "G8PZT",
+                nodeAlias: "NODEB",
+                chatCall: "G8PZT-8",
+                chatAlias: "NBCHT",
+                staticIp: NodeBContainerIp,
+                peerIp: NodeAContainerIp,
+                udpLocal: 10094,
+                udpRemote: 10093,
+                peerNodeCall: NodeACallsign,
+                peerNodeAlias: "NODEA");
 
             await Task.WhenAll(_nodeA.StartAsync(), _nodeB.StartAsync()).ConfigureAwait(false);
 
@@ -115,28 +157,85 @@ public sealed class XRouterPairFixture : IAsyncLifetime
         }
     }
 
-    private IContainer BuildNode(string cfgFileName, string staticIp)
+    private IContainer BuildNode(
+        string nodeCall,
+        string consoleCall,
+        string nodeAlias,
+        string chatCall,
+        string chatAlias,
+        string staticIp,
+        string peerIp,
+        int udpLocal,
+        int udpRemote,
+        string peerNodeCall = "",
+        string peerNodeAlias = "")
     {
-        var cfgPath = Path.Combine(AppContext.BaseDirectory, "Resources", cfgFileName);
-        if (!File.Exists(cfgPath))
-            throw new FileNotFoundException($"Missing config: {cfgPath}");
+        var cfgText = $"""
+DNS=8.8.8.8
 
-        // Validate the Resources file actually mentions the static IP we're
-        // about to assign — the IPADDRESS directive in the cfg must match
-        // what xrouter sees on its interface or AXUDP routing falls over.
-        var cfgText = File.ReadAllText(cfgPath);
-        if (!cfgText.Contains($"IPADDRESS={staticIp}", StringComparison.Ordinal))
-            throw new InvalidOperationException(
-                $"{cfgFileName} must declare IPADDRESS={staticIp} to match the assigned container IP.");
+NODECALL={nodeCall}
+NODEALIAS={nodeAlias}
+CONSOLECALL={consoleCall}
+CHATCALL={chatCall}
+CHATALIAS={chatAlias}
 
-        return new ContainerBuilder()
+RHPPORT=9000
+IPADDRESS={staticIp}
+
+CTEXT
+{nodeAlias}.
+***
+
+INFOTEXT
+{nodeAlias}.
+***
+
+IDTEXT
+!5824.22N/00515.00W {nodeAlias}
+***
+
+INTERFACE=1
+	TYPE=LOOPBACK
+	PROTOCOL=KISS
+	MTU=256
+ENDINTERFACE
+PORT=1
+	ID="Loopback"
+	INTERFACENUM=1
+ENDPORT
+
+INTERFACE=2
+	TYPE=AXUDP
+	MTU=256
+ENDINTERFACE
+PORT=2
+	ID="AXUDP partner"
+	INTERFACENUM=2
+	IPLINK={peerIp}
+	UDPLOCAL={udpLocal}
+	UDPREMOTE={udpRemote}
+	FRACK=2000
+	RESPTIME=200
+ENDPORT
+""";
+
+        // Pre-populate XRNODES with a static, locked NetRom route to
+        // the peer node. Without this, fresh xrouter takes the
+        // NODESINTERVAL window (minutes) to discover the peer through
+        // NODES broadcasts — way too slow for an integration test.
+        // Format documented in xrouter's XRNODES(8) man page.
+        var xrnodes = string.IsNullOrEmpty(peerNodeCall)
+            ? string.Empty
+            : $"""
+ROUTE ADD {peerNodeCall} 2 200 !
+NODE ADD {peerNodeAlias}:{peerNodeCall} {peerNodeCall} 2 200 !
+""";
+
+        var builder = new ContainerBuilder()
             .WithImage(Image)
             .WithNetwork(_network!)
             .WithCreateParameterModifier(p =>
             {
-                // Tell Docker to give this container a static IP on our
-                // managed network. Testcontainers populates EndpointsConfig
-                // with the network entry; we extend it with IPAM info.
                 p.NetworkingConfig ??= new NetworkingConfig();
                 p.NetworkingConfig.EndpointsConfig ??= new Dictionary<string, EndpointSettings>();
                 if (!p.NetworkingConfig.EndpointsConfig.TryGetValue(_network!.Name, out var ep))
@@ -147,10 +246,15 @@ public sealed class XRouterPairFixture : IAsyncLifetime
                 ep.IPAMConfig = new EndpointIPAMConfig { IPv4Address = staticIp };
             })
             .WithPortBinding(9000, assignRandomHostPort: true)
-            .WithResourceMapping(File.ReadAllBytes(cfgPath), "/data/XROUTER.CFG")
+            .WithResourceMapping(System.Text.Encoding.UTF8.GetBytes(cfgText), "/data/XROUTER.CFG")
             .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilMessageIsLogged("xrouter version "))
-            .Build();
+                .UntilMessageIsLogged("xrouter version "));
+
+        if (!string.IsNullOrEmpty(xrnodes))
+            builder = builder.WithResourceMapping(
+                System.Text.Encoding.UTF8.GetBytes(xrnodes), "/data/XRNODES");
+
+        return builder.Build();
     }
 
     private static async Task WaitForRhpAcceptingAsync(string host, int port, TimeSpan timeout)

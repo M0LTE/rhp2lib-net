@@ -239,6 +239,98 @@ public class Ax25OverAxudpTests
     }
 
     [SkippableFact]
+    public async Task Raw_Listener_Captures_Encoded_Ax25_Frames()
+    {
+        // RAW mode listener delivers complete on-the-wire AX.25 frames
+        // (callsigns shifted-ASCII encoded, ctrl/PID/info concatenated)
+        // rather than the decoded TRACE-style metadata. The library
+        // surfaces them through the standard Received event with `data`
+        // carrying the raw bytes (encoded as Latin-1 for transport).
+        RequireFixture();
+
+        await using var rawClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        await using var trafficClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var rawFrameTcs = new TaskCompletionSource<RecvMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        rawClient.Received += (_, e) =>
+        {
+            if (e.Message.Action is not null && e.Message.Data.Length > 14)
+                rawFrameTcs.TrySetResult(e.Message);
+        };
+
+        var rawHandle = await rawClient.OpenAsync(
+            ProtocolFamily.Ax25, SocketMode.Raw,
+            port: "1",
+            flags: OpenFlags.TraceIncoming | OpenFlags.TraceOutgoing | OpenFlags.TraceSupervisory);
+        Assert.True(rawHandle > 0);
+
+        // Generate AX.25 traffic on port 1 (loopback).
+        var caller = await trafficClient.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await trafficClient.BindAsync(caller, local: "G9DUM-R", port: "1");
+        await trafficClient.ConnectAsync(caller, remote: _fx.NodeACallsign);
+
+        var raw = await rawFrameTcs.Task.WaitAsync(ConnectTimeout);
+        Assert.NotNull(raw.Action);
+        Assert.True(raw.Data.Length >= 14,
+            $"AX.25 frames are at least 14 bytes (2 calls + ctrl); got {raw.Data.Length}");
+        // Raw frames don't carry decoded fields — those are TRACE only.
+        Assert.Null(raw.FrameType);
+        Assert.Null(raw.Srce);
+        Assert.Null(raw.Dest);
+        // Decoded as bytes via the library's Latin-1 helper.
+        var bytes = RhpDataEncoding.FromWireString(raw.Data);
+        Assert.Equal(raw.Data.Length, bytes.Length);
+
+        try { await trafficClient.CloseAsync(caller); } catch { }
+        try { await rawClient.CloseAsync(rawHandle); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task Inet_Stream_Sends_Http_Get_And_Receives_Response_Plus_Close()
+    {
+        // pfam=inet stream against xrouter's own HTTP server is a
+        // round-trip test for the embedded TCP/IP stack. The server
+        // replies with multiple `recv` frames (HTTP/1.0 response) and
+        // then issues a server-initiated close — which the library
+        // surfaces as the Closed event.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var connectedTcs = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseChunks = new System.Text.StringBuilder();
+        var closedTcs = new TaskCompletionSource<int>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StatusChanged += (_, e) =>
+        {
+            if ((e.Message.Flags & (int)StatusFlags.Connected) != 0)
+                connectedTcs.TrySetResult(true);
+        };
+        client.Received += (_, e) =>
+        {
+            lock (responseChunks) responseChunks.Append(e.Message.Data);
+        };
+        client.Closed += (_, e) => closedTcs.TrySetResult(e.Handle);
+
+        var h = await client.SocketAsync(ProtocolFamily.Inet, SocketMode.Stream);
+        await client.BindAsync(h, local: "127.0.0.1:0");
+        await client.ConnectAsync(h, remote: "127.0.0.1:8086");
+        await connectedTcs.Task.WaitAsync(ConnectTimeout);
+
+        await client.SendOnHandleAsync(h, "GET / HTTP/1.0\r\n\r\n");
+
+        var closedHandle = await closedTcs.Task.WaitAsync(DataTimeout);
+        Assert.Equal(h, closedHandle);
+
+        string response;
+        lock (responseChunks) response = responseChunks.ToString();
+        Assert.Contains("HTTP/1.0 200 OK", response);
+        Assert.Contains("XrLin", response);
+    }
+
+    [SkippableFact]
     public async Task SendReply_Status_Surfaces_Busy_Flag_On_Large_Loopback_Send()
     {
         // The `status` field in `sendReply` carries the live link
