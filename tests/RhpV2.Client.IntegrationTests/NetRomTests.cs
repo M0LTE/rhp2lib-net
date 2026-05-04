@@ -21,7 +21,7 @@ public sealed class NetRomTests : IClassFixture<XRouterPairFixture>
     private readonly XRouterPairFixture _fx;
     public NetRomTests(XRouterPairFixture fx) => _fx = fx;
 
-    [SkippableFact]
+    [Fact]
     public async Task NetRom_Stream_Connect_To_Peer_Routes_Through_Ax25_Link()
     {
         // NetRom rides on top of AX.25. On a fresh xrouter pair with a
@@ -30,7 +30,6 @@ public sealed class NetRomTests : IClassFixture<XRouterPairFixture>
         // brings the underlying AX.25 link up on demand. A successful
         // round-trip ("i" → banner from the peer's command processor)
         // confirms the NetRom path is exercised end-to-end.
-        Skip.IfNot(_fx.IsAvailable, _fx.UnavailableReason ?? "fixture unavailable");
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
 

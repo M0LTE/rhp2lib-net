@@ -87,9 +87,13 @@ flowchart LR
 
 * **No third-party dependencies.**  Pure `System.Text.Json` + sockets.
 * **Async to the core.**  No blocking calls, no thread-pool starvation.
-* **Tolerant of spec quirks.**  Read paths are case-insensitive and
-  accept both `ConnectReply` and `connectReply`.
+* **Tolerant of spec quirks.**  Read paths are case-insensitive,
+  accept both `ConnectReply` and `connectReply`, and tolerate the
+  several places where real XRouter diverges from the published spec
+  ([protocol primer](../protocol.md#spec-quirks-the-library-tolerates)).
 * **Forward-compatible.**  Unknown message types arrive as
   `UnknownMessage`, never as a deserialization error.
-* **Self-contained tests.**  `MockRhpServer` ships with the library so
-  downstream consumers can write their own integration tests.
+* **Reality-tested.**  `MockRhpServer` is byte-for-byte equivalent on
+  the wire to what live XRouter emits, and the project's integration
+  suite drives a real XRouter via Testcontainers to keep the two in
+  sync.

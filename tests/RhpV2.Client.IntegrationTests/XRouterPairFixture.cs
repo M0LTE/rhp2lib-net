@@ -22,8 +22,10 @@ namespace RhpV2.Client.IntegrationTests;
 /// processor.
 ///
 /// <para>
-/// Each test class collects the fixture; tests skip gracefully when
-/// Docker isn't reachable.
+/// Requires a running Docker daemon. If the fixture can't bring both
+/// containers up, the failure propagates from
+/// <see cref="InitializeAsync"/> and every test in the class fails
+/// loudly — there's no silent skip.
 /// </para>
 /// </summary>
 public sealed class XRouterPairFixture : IAsyncLifetime
@@ -67,10 +69,6 @@ public sealed class XRouterPairFixture : IAsyncLifetime
     public ushort NodeBRhpPort { get; private set; }
 
     public string Host => "127.0.0.1";
-
-    /// <summary>True once both containers are up and RHP is accepting.</summary>
-    public bool IsAvailable { get; private set; }
-    public string? UnavailableReason { get; private set; }
 
     private INetwork? _network;
     private IContainer? _nodeA;
@@ -127,13 +125,11 @@ public sealed class XRouterPairFixture : IAsyncLifetime
                 WaitForRhpAcceptingAsync(Host, NodeARhpPort, TimeSpan.FromSeconds(15)),
                 WaitForRhpAcceptingAsync(Host, NodeBRhpPort, TimeSpan.FromSeconds(15)))
                 .ConfigureAwait(false);
-
-            IsAvailable = true;
         }
-        catch (Exception ex)
+        catch
         {
-            UnavailableReason = $"Pair fixture failed to start: {ex.Message}";
             await SafeDisposeAsync().ConfigureAwait(false);
+            throw;
         }
     }
 

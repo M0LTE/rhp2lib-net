@@ -30,7 +30,6 @@ public class RealXRouterTests
 
     private async Task<RhpClient> ConnectAsync(CancellationToken ct = default)
     {
-        Skip.IfNot(_fx.IsAvailable, _fx.UnavailableReason ?? "fixture unavailable");
         return await RhpClient.ConnectAsync(_fx.Host, _fx.RhpPort, ct).ConfigureAwait(false);
     }
 
@@ -38,18 +37,16 @@ public class RealXRouterTests
     //  Connection management
     // -----------------------------------------------------------------
 
-    [SkippableFact]
+    [Fact]
     public async Task Tcp_Listener_Is_Reachable()
     {
-        Skip.IfNot(_fx.IsAvailable, _fx.UnavailableReason ?? "fixture unavailable");
-
         using var tcp = new TcpClient();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await tcp.ConnectAsync(_fx.Host, _fx.RhpPort, cts.Token);
         Assert.True(tcp.Connected);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Auth_BadCredentials_Returns_Unauthorised()
     {
         await using var client = await ConnectAsync();
@@ -67,7 +64,7 @@ public class RealXRouterTests
     //  BSD-style socket lifecycle (well-supported on the loopback cfg)
     // -----------------------------------------------------------------
 
-    [SkippableFact]
+    [Fact]
     public async Task Socket_Inet_Stream_Allocates_Handle()
     {
         await using var client = await ConnectAsync();
@@ -78,7 +75,7 @@ public class RealXRouterTests
         await client.CloseAsync(h);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Socket_Bind_Listen_Inet_Roundtrips()
     {
         await using var client = await ConnectAsync();
@@ -99,7 +96,7 @@ public class RealXRouterTests
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Bind_OnInvalidHandle_Throws_With_InvalidHandle()
     {
         await using var client = await ConnectAsync();
@@ -109,7 +106,7 @@ public class RealXRouterTests
         Assert.Equal(RhpErrorCode.InvalidHandle, ex.ErrorCode);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Connect_OnInvalidHandle_Throws_With_InvalidHandle()
     {
         await using var client = await ConnectAsync();
@@ -119,7 +116,7 @@ public class RealXRouterTests
         Assert.Equal(RhpErrorCode.InvalidHandle, ex.ErrorCode);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Listen_OnInvalidHandle_Throws_With_InvalidHandle()
     {
         await using var client = await ConnectAsync();
@@ -129,7 +126,7 @@ public class RealXRouterTests
         Assert.Equal(RhpErrorCode.InvalidHandle, ex.ErrorCode);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Send_OnInvalidHandle_Throws_With_InvalidHandle()
     {
         await using var client = await ConnectAsync();
@@ -139,7 +136,7 @@ public class RealXRouterTests
         Assert.Equal(RhpErrorCode.InvalidHandle, ex.ErrorCode);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Status_OnInvalidHandle_Throws_With_InvalidHandle()
     {
         await using var client = await ConnectAsync();
@@ -149,7 +146,7 @@ public class RealXRouterTests
         Assert.Equal(RhpErrorCode.InvalidHandle, ex.ErrorCode);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Close_OnInvalidHandle_Returns_InvalidHandle()
     {
         await using var client = await ConnectAsync();
@@ -159,7 +156,7 @@ public class RealXRouterTests
         Assert.Equal(RhpErrorCode.InvalidHandle, ex.ErrorCode);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Handles_Are_Globally_Numbered_Across_Connections()
     {
         // Surprising xrouter behaviour worth pinning down: socket
@@ -184,7 +181,7 @@ public class RealXRouterTests
     //  Combined OPEN — high-level path
     // -----------------------------------------------------------------
 
-    [SkippableFact]
+    [Fact]
     public async Task Open_UnixConsole_Yields_Connected_Status_And_Banner()
     {
         // Opening pfam=unix mode=stream local="console" makes xrouter
@@ -225,13 +222,12 @@ public class RealXRouterTests
     //  Wire-format pinning — what xrouter actually emits
     // -----------------------------------------------------------------
 
-    [SkippableFact]
+    [Fact]
     public async Task SocketReply_Wire_Uses_CapitalC_ErrCode()
     {
         // The library reads case-insensitively, so a malformed mock
         // would still pass higher-level tests. Pin the *real* casing
         // here so the mock can be aligned with the real server.
-        Skip.IfNot(_fx.IsAvailable, _fx.UnavailableReason ?? "fixture unavailable");
 
         var raw = await SendRawAndReadAsync(
             new JsonObject
@@ -251,11 +247,9 @@ public class RealXRouterTests
             $"did not expect lowercase errcode. Wire: {raw.ToJsonString()}");
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task ErrorReplies_All_Use_CapitalC_ErrCode()
     {
-        Skip.IfNot(_fx.IsAvailable, _fx.UnavailableReason ?? "fixture unavailable");
-
         // Drive a single connection through a battery of requests, all
         // returning errors, and verify every reply carries errCode
         // (capital C) on the wire — *not* errcode lowercase as the
@@ -295,11 +289,9 @@ public class RealXRouterTests
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task Unknown_Type_Comes_Back_As_TypeReply_With_BadType_Error()
     {
-        Skip.IfNot(_fx.IsAvailable, _fx.UnavailableReason ?? "fixture unavailable");
-
         // xrouter quirk worth pinning: it manufactures a reply name by
         // appending "Reply" to whatever string it received as `type`.
         var raw = await SendRawAndReadAsync(new JsonObject

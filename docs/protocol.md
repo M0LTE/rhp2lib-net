@@ -162,6 +162,12 @@ surfaces non-zero replies via [`RhpServerException`](library/errors.md).
 | 14   | Unauthorised               |
 | 15   | No Route                   |
 | 16   | Operation not supported    |
+| 17   | Not connected †            |
+
+† `Not connected` (`errCode:17`) isn't in the published table but
+xrouter emits it on `send` against a stream socket whose AX.25
+downlink isn't (yet, or any longer) connected.  The library exposes
+it as `RhpErrorCode.NotConnected`.
 
 ## Spec quirks the library tolerates
 
@@ -203,6 +209,23 @@ surfaces non-zero replies via [`RhpServerException`](library/errors.md).
   request on that same TCP connection** is answered with
   `authReply`/`errCode:14`, regardless of its actual `type`.  Reconnect
   to recover.
+* **`accept.port` is a JSON string**, not the unquoted number the
+  PWP-0222 example shows.  Real xrouter emits `"port":"2"` on
+  `accept`.  The library types `AcceptMessage.Port` as `string?` and
+  reads either shape.
+* **`recv.port` shape varies by mode**: TRACE emits an unquoted
+  number (`"port":1`), DGRAM emits a quoted string (`"port":"2"`).
+  Same field name, two wire shapes.  The library normalises to
+  `string?` and reads either.
+* TRACE-mode `recv` frames carry several fields the spec doesn't
+  enumerate: `tseq` (transmit sequence), `ilen` (info-field length),
+  `pid` (AX.25 PID byte), `ptcl` (decoded protocol name).  All
+  exposed on `RecvMessage`.
+* **`send.data` above ~8 KB is silently dropped** — no `sendReply`,
+  no notification, the RHP TCP connection stays open.  The cliff
+  sits between 8100 and 8200 bytes.  Below that, behaviour is normal;
+  above, callers that `await` `sendReply` will hang.  Fragment
+  client-side if you need larger payloads.
 
 ## Lifecycle examples
 

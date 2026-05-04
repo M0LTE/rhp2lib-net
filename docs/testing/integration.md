@@ -8,10 +8,12 @@ The library has two test projects:
 * **`tests/RhpV2.Client.Tests`** — fast unit tests against
   `MockRhpServer`, plus framing/codec/parser tests. Runs everywhere.
 * **`tests/RhpV2.Client.IntegrationTests`** — black-box tests that
-  spin up `ghcr.io/packethacking/xrouter` via Testcontainers and drive
-  the real RHP server. Each test skips gracefully when Docker isn't
-  available, so the project still builds (and the suite still passes)
-  without a Docker daemon.
+  spin up `ghcr.io/packethacking/xrouter` via Testcontainers and
+  drive the real RHP server, including a two-container fixture
+  joined by AXUDP. **Requires a running Docker daemon** — the
+  fixtures throw on startup failure rather than silently skipping,
+  so a green run actually means the integration paths were
+  exercised.
 
 ## Skeleton
 
