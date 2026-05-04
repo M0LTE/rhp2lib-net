@@ -5,7 +5,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <!-- Plain class library: shared test support, not itself a test project. -->
+    <!-- Plain class library: shared test support, not itself a test
+         project. The IsTestProject=false flag stops `dotnet test` (run
+         against the solution) from trying to load this DLL as a test
+         host — without it, it gets discovered alongside the real test
+         projects and the testhost dies on the missing transitive
+         Docker.DotNet at startup, making `dotnet test` exit non-zero
+         even when every actual test passed. -->
+    <IsTestProject>false</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
