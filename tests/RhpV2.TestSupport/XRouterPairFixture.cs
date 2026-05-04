@@ -10,7 +10,7 @@ using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
 using Xunit;
 
-namespace RhpV2.Client.IntegrationTests;
+namespace RhpV2.TestSupport;
 
 /// <summary>
 /// Two xrouter containers connected by AXUDP, running on a private
@@ -277,5 +277,3 @@ NODE ADD {peerNodeAlias}:{peerNodeCall} {peerNodeCall} 2 200 !
     }
 }
 
-[CollectionDefinition(nameof(XRouterPairCollection))]
-public sealed class XRouterPairCollection : ICollectionFixture<XRouterPairFixture> { }
