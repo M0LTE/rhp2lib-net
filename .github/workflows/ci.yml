@@ -56,27 +56,12 @@ jobs:
       - name: Build
         run: dotnet build RhpV2.slnx --configuration Release --no-restore
 
-      # Unit suite runs on every OS — no external dependencies.
-      - name: Test (unit)
+      - name: Test
         run: >
-          dotnet test tests/RhpV2.Client.Tests/RhpV2.Client.Tests.csproj
+          dotnet test RhpV2.slnx
           --configuration Release
           --no-build
-          --logger "trx;LogFileName=test-results-unit.trx"
-          --results-directory ./TestResults
-
-      # Integration suite needs Docker + Linux containers. The hosted
-      # ubuntu-latest runner has both; the windows / macOS runners
-      # don't run Linux containers, so skip the project there. The
-      # fixtures fail loudly on missing Docker by design — there's no
-      # silent skip — so we gate at the workflow level instead.
-      - name: Test (integration)
-        if: runner.os == 'Linux'
-        run: >
-          dotnet test tests/RhpV2.Client.IntegrationTests/RhpV2.Client.IntegrationTests.csproj
-          --configuration Release
-          --no-build
-          --logger "trx;LogFileName=test-results-integration.trx"
+          --logger "trx;LogFileName=test-results.trx"
           --results-directory ./TestResults
 
       - name: Upload test results
