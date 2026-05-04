@@ -140,6 +140,105 @@ public class Ax25OverAxudpTests
     }
 
     [SkippableFact]
+    public async Task Binary_Bytes_Round_Trip_Via_Dgram_Through_Real_Xrouter()
+    {
+        // The library encodes binary payloads as Latin-1 in the JSON
+        // `data` field; STJ then promotes high bytes (0x80–0xFF) to
+        // 2-byte UTF-8 sequences on the wire. Verify a payload covering
+        // null, low control chars, and the high byte boundary survives
+        // a real cross-AXUDP UI-frame round trip byte-for-byte.
+        RequireFixture();
+
+        const string AReceiverCall = "G9DUM-6";
+        const string BSenderCall   = "G8PZT-6";
+        var binary = new byte[] { 0x00, 0x01, 0x7F, 0x80, 0xAA, 0xFE, 0xFF, 0x0D, 0x0A };
+
+        await using var nodeA = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        await using var nodeB = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeBRhpPort);
+
+        var recvTcs = new TaskCompletionSource<RecvMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        nodeA.Received += (_, e) =>
+        {
+            if (e.Message.Local == AReceiverCall) recvTcs.TrySetResult(e.Message);
+        };
+
+        var receiver = await nodeA.SocketAsync(ProtocolFamily.Ax25, SocketMode.Dgram);
+        await nodeA.BindAsync(receiver, local: AReceiverCall, port: "2");
+
+        var sender = await nodeB.SocketAsync(ProtocolFamily.Ax25, SocketMode.Dgram);
+        await nodeB.BindAsync(sender, local: BSenderCall, port: "2");
+        await nodeB.SendToAsync(sender,
+            data: RhpDataEncoding.ToWireString(binary),
+            port: "2",
+            local: BSenderCall,
+            remote: AReceiverCall);
+
+        var recv = await recvTcs.Task.WaitAsync(DataTimeout);
+        var got = RhpDataEncoding.FromWireString(recv.Data);
+        Assert.Equal(binary, got);
+
+        try { await nodeA.CloseAsync(receiver); } catch { }
+        try { await nodeB.CloseAsync(sender); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task Listen_Twice_On_Same_Local_Returns_DuplicateSocket()
+    {
+        // bind succeeds twice for the same callsign+port pair, but
+        // listen on the second one fails with errCode 9 ("Duplicate
+        // socket") — the spec error code is hit for real here.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        var h1 = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        var h2 = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        try
+        {
+            await client.BindAsync(h1, local: "G9DUM-D", port: "1");
+            await client.BindAsync(h2, local: "G9DUM-D", port: "1");
+            await client.ListenAsync(h1);
+
+            var ex = await Assert.ThrowsAsync<RhpServerException>(
+                async () => await client.ListenAsync(h2));
+            Assert.Equal(RhpErrorCode.DuplicateSocket, ex.ErrorCode);
+        }
+        finally
+        {
+            try { await client.CloseAsync(h1); } catch { }
+            try { await client.CloseAsync(h2); } catch { }
+        }
+    }
+
+    [SkippableFact]
+    public async Task Inet_Stream_Bind_And_Connect_To_Local_Service_Succeeds()
+    {
+        // pfam=inet exercises a different code path inside xrouter
+        // (the embedded TCP/IP stack). Connect to xrouter's own HTTP
+        // server on 127.0.0.1:8086 and verify the connectReply +
+        // CONNECTED status path. Also pins that the connectReply
+        // errCode-mirrors-handle quirk is family-agnostic.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var connectedTcs = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StatusChanged += (_, e) =>
+        {
+            if ((e.Message.Flags & (int)StatusFlags.Connected) != 0)
+                connectedTcs.TrySetResult(true);
+        };
+
+        var h = await client.SocketAsync(ProtocolFamily.Inet, SocketMode.Stream);
+        await client.BindAsync(h, local: "127.0.0.1:0");
+        await client.ConnectAsync(h, remote: "127.0.0.1:8086");
+
+        await connectedTcs.Task.WaitAsync(ConnectTimeout);
+        try { await client.CloseAsync(h); } catch { }
+    }
+
+    [SkippableFact]
     public async Task Listen_On_Dgram_Socket_Returns_Operation_Not_Supported()
     {
         // Pin: real xrouter responds to `listen` on a DGRAM socket with
