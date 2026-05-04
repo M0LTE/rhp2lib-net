@@ -375,6 +375,140 @@ public class Ax25OverAxudpTests
     }
 
     [SkippableFact]
+    public async Task Multiple_Concurrent_Streams_On_Same_Rhp_Connection_Each_Get_Independent_Handle()
+    {
+        // Confirms RHP multiplexing: a single TCP connection can hold
+        // multiple distinct AX.25 sockets, each with its own bound
+        // local callsign, and each request/reply correlates by id
+        // independent of the others.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var handles = new List<int>();
+        var binds = new List<Task>();
+        var allocated = new List<int>();
+        for (int i = 0; i < 5; i++)
+        {
+            var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+            allocated.Add(h);
+            binds.Add(client.BindAsync(h, local: $"G9DUM-{i + 5}", port: "2"));
+        }
+        await Task.WhenAll(binds);
+
+        Assert.Equal(allocated.Count, allocated.Distinct().Count());
+        Assert.All(allocated, h => Assert.True(h > 0));
+
+        foreach (var h in allocated)
+        {
+            try { await client.CloseAsync(h); } catch { }
+        }
+    }
+
+    [SkippableFact]
+    public async Task NetRom_Dgram_Socket_Can_Be_Allocated()
+    {
+        // pfam=netrom mode=dgram allocates without error on real
+        // xrouter. We don't drive a full datagram round-trip here —
+        // see NetRomTests for the stream path which actually moves
+        // packets — but pin that the family/mode combo is accepted.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        var h = await client.SocketAsync(ProtocolFamily.NetRom, SocketMode.Dgram);
+        Assert.True(h > 0);
+        try { await client.CloseAsync(h); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task SeqPkt_Mode_Allocates_Socket_And_Binds()
+    {
+        // pfam=ax25 mode=seqpkt allocates and binds, but `listen`
+        // returns errCode 16 ("Operation not supported") — same
+        // shape as DGRAM. Pin the allocation+bind path.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Seqpkt);
+        Assert.True(h > 0);
+        await client.BindAsync(h, local: "G9DUM-Q", port: "2");
+        var ex = await Assert.ThrowsAsync<RhpServerException>(
+            async () => await client.ListenAsync(h));
+        Assert.Equal(RhpErrorCode.OperationNotSupported, ex.ErrorCode);
+        try { await client.CloseAsync(h); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task Custom_Mode_Allocates_Socket_And_Binds()
+    {
+        // pfam=ax25 mode=custom — sysop-defined protocol. Allocation
+        // and bind both succeed; pin that the mode discriminator is
+        // accepted by xrouter.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Custom);
+        Assert.True(h > 0);
+        await client.BindAsync(h, local: "G9DUM-K", port: "2");
+        try { await client.CloseAsync(h); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task Inet_Dgram_Socket_Allocates()
+    {
+        // pfam=inet mode=dgram (UDP). Allocation works; bind/sendto
+        // behaviour is finicky and depends on prior IP-stack activity
+        // — sometimes "No memory" on bind to 127.0.0.1:0, sometimes
+        // "Invalid local address" on sendto without prior bind. Just
+        // pin allocation here; data path is not reliably testable on
+        // a freshly-started xrouter.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        var h = await client.SocketAsync(ProtocolFamily.Inet, SocketMode.Dgram);
+        Assert.True(h > 0);
+        try { await client.CloseAsync(h); } catch { }
+    }
+
+    [SkippableFact]
+    public async Task Connect_To_Unreachable_Eventually_Fires_Disconnect_Status_And_Close()
+    {
+        // AX.25 connect to a callsign with no route returns a
+        // connectReply with errText="Ok" immediately, but the SABM
+        // never gets a UA. After ~20–30 seconds (FRACK × N retries)
+        // xrouter declares the link failed: it pushes a STATUS
+        // notification with flags=0 (disconnected) followed by a
+        // CLOSE notification on the handle. This is the canonical
+        // failure-of-an-asynchronous-connect path.
+        RequireFixture();
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var disconnectedTcs = new TaskCompletionSource<StatusMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var closedTcs = new TaskCompletionSource<int>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StatusChanged += (_, e) =>
+        {
+            if (e.Message.Flags == 0)
+                disconnectedTcs.TrySetResult(e.Message);
+        };
+        client.Closed += (_, e) => closedTcs.TrySetResult(e.Handle);
+
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await client.BindAsync(h, local: "G9DUM-U", port: "2");
+        await client.ConnectAsync(h, remote: "NOROUTE-1");
+
+        // Wait up to 45s for the FRACK retries to give up.
+        var disconnect = await disconnectedTcs.Task.WaitAsync(TimeSpan.FromSeconds(45));
+        Assert.Equal(h, disconnect.Handle);
+        Assert.Equal(0, disconnect.Flags);
+
+        var closedHandle = await closedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(h, closedHandle);
+    }
+
+    [SkippableFact]
     public async Task Listen_On_Dgram_Socket_Returns_Operation_Not_Supported()
     {
         // Pin: real xrouter responds to `listen` on a DGRAM socket with
