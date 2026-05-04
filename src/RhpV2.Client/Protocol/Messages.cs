@@ -48,7 +48,12 @@ public sealed class AuthReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.AuthReply;
 
-    /// <summary>Spec uses "errCode" (capital C) for AUTHREPLY.</summary>
+    /// <summary>
+    /// Real xrouter emits <c>errCode</c>/<c>errText</c> with capital C/T on
+    /// every reply, including AUTHREPLY (the published spec only mentions
+    /// it as a quirk of AUTHREPLY). The library reads case-insensitively
+    /// so lowercase wire forms are still accepted.
+    /// </summary>
     [JsonPropertyName("errCode")]
     public int ErrCode { get; set; }
 
@@ -93,10 +98,10 @@ public sealed class OpenReplyMessage : RhpMessage
     [JsonPropertyName("handle")]
     public int Handle { get; set; }
 
-    [JsonPropertyName("errcode")]
+    [JsonPropertyName("errCode")]
     public int ErrCode { get; set; }
 
-    [JsonPropertyName("errtext")]
+    [JsonPropertyName("errText")]
     public string? ErrText { get; set; }
 }
 
@@ -115,8 +120,8 @@ public sealed class SocketReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.SocketReply;
     [JsonPropertyName("handle")] public int? Handle { get; set; }
-    [JsonPropertyName("errcode")] public int ErrCode { get; set; }
-    [JsonPropertyName("errtext")] public string? ErrText { get; set; }
+    [JsonPropertyName("errCode")] public int ErrCode { get; set; }
+    [JsonPropertyName("errText")] public string? ErrText { get; set; }
 }
 
 public sealed class BindMessage : RhpMessage
@@ -131,8 +136,8 @@ public sealed class BindReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.BindReply;
     [JsonPropertyName("handle")] public int Handle { get; set; }
-    [JsonPropertyName("errcode")] public int ErrCode { get; set; }
-    [JsonPropertyName("errtext")] public string? ErrText { get; set; }
+    [JsonPropertyName("errCode")] public int ErrCode { get; set; }
+    [JsonPropertyName("errText")] public string? ErrText { get; set; }
 }
 
 public sealed class ListenMessage : RhpMessage
@@ -146,8 +151,8 @@ public sealed class ListenReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.ListenReply;
     [JsonPropertyName("handle")] public int Handle { get; set; }
-    [JsonPropertyName("errcode")] public int ErrCode { get; set; }
-    [JsonPropertyName("errtext")] public string? ErrText { get; set; }
+    [JsonPropertyName("errCode")] public int ErrCode { get; set; }
+    [JsonPropertyName("errText")] public string? ErrText { get; set; }
 }
 
 public sealed class ConnectMessage : RhpMessage
@@ -161,8 +166,8 @@ public sealed class ConnectReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.ConnectReply;
     [JsonPropertyName("handle")] public int Handle { get; set; }
-    [JsonPropertyName("errcode")] public int ErrCode { get; set; }
-    [JsonPropertyName("errtext")] public string? ErrText { get; set; }
+    [JsonPropertyName("errCode")] public int ErrCode { get; set; }
+    [JsonPropertyName("errText")] public string? ErrText { get; set; }
 }
 
 // ---------------------------------------------------------------------------
@@ -191,8 +196,8 @@ public sealed class SendReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.SendReply;
     [JsonPropertyName("handle")] public int Handle { get; set; }
-    [JsonPropertyName("errcode")] public int ErrCode { get; set; }
-    [JsonPropertyName("errtext")] public string? ErrText { get; set; }
+    [JsonPropertyName("errCode")] public int ErrCode { get; set; }
+    [JsonPropertyName("errText")] public string? ErrText { get; set; }
     /// <summary>STREAM-mode connection status (CONNECTED|BUSY).</summary>
     [JsonPropertyName("status")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Status { get; set; }
 }
@@ -212,8 +217,8 @@ public sealed class SendToReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.SendToReply;
     [JsonPropertyName("handle")] public int Handle { get; set; }
-    [JsonPropertyName("errcode")] public int ErrCode { get; set; }
-    [JsonPropertyName("errtext")] public string? ErrText { get; set; }
+    [JsonPropertyName("errCode")] public int ErrCode { get; set; }
+    [JsonPropertyName("errText")] public string? ErrText { get; set; }
 }
 
 public sealed class RecvMessage : RhpMessage
@@ -261,8 +266,8 @@ public sealed class StatusReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.StatusReply;
     [JsonPropertyName("handle")] public int Handle { get; set; }
-    [JsonPropertyName("errcode")] public int ErrCode { get; set; }
-    [JsonPropertyName("errtext")] public string? ErrText { get; set; }
+    [JsonPropertyName("errCode")] public int ErrCode { get; set; }
+    [JsonPropertyName("errText")] public string? ErrText { get; set; }
 }
 
 public sealed class CloseMessage : RhpMessage
@@ -275,6 +280,6 @@ public sealed class CloseReplyMessage : RhpMessage
 {
     public override string Type => RhpMessageType.CloseReply;
     [JsonPropertyName("handle")] public int Handle { get; set; }
-    [JsonPropertyName("errcode")] public int ErrCode { get; set; }
-    [JsonPropertyName("errtext")] public string? ErrText { get; set; }
+    [JsonPropertyName("errCode")] public int ErrCode { get; set; }
+    [JsonPropertyName("errText")] public string? ErrText { get; set; }
 }

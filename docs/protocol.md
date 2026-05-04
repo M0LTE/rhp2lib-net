@@ -165,14 +165,33 @@ surfaces non-zero replies via [`RhpServerException`](library/errors.md).
 
 ## Spec quirks the library tolerates
 
-* `AUTHREPLY` uses `errCode`/`errText` (capital C).  Most other replies
-  use `errcode`/`errtext`.  The library uses
-  `PropertyNameCaseInsensitive` on read and matches the spec literally on
-  write.
+* **All** replies use `errCode`/`errText` (capital C/T) on the wire.
+  PWP-0222 / PWP-0245 only mentions this as a quirk of `AUTHREPLY`, but
+  integration testing against the real xrouter
+  (`ghcr.io/packethacking/xrouter`) shows every reply uses the
+  capitalised form.  The library reads case-insensitively (so the
+  lowercase form from the spec also works) and writes the capitalised
+  form so the mock server matches real xrouter byte-for-byte.
 * PWP-0222 spells the connect reply type as `ConnectReply` (PascalCase).
   The library writes `connectReply` (camelCase) — and reads either.
 * Unknown `type` values surface as `UnknownMessage`, preserving the raw
-  JSON for forward compatibility.
+  JSON for forward compatibility.  The real xrouter happens to manufacture
+  a reply for unknown types by appending `Reply` to whatever string it
+  received (e.g. `foo` → `fooReply` with `errCode:2`); the library
+  surfaces such replies as `UnknownMessage` (since the type discriminator
+  doesn't match anything it knows).
+* `RHPPORT=9000` must appear in `XROUTER.CFG` for xrouter to bind the RHP
+  listener on the Linux stack — without an explicit directive, the dummy
+  loopback config doesn't open the port.
+* Socket handles allocated via `socket` / `open` are *globally* numbered
+  inside xrouter, not scoped per TCP connection.  Two clients can see
+  monotonically-related handles, and (with care) a handle allocated by
+  one connection can be referenced by another.  Treat handles as opaque
+  and don't rely on isolation.
+* When a connection sends a bad `auth` request, **every subsequent
+  request on that same TCP connection** is answered with
+  `authReply`/`errCode:14`, regardless of its actual `type`.  Reconnect
+  to recover.
 
 ## Lifecycle examples
 

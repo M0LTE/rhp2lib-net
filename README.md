@@ -15,9 +15,10 @@ G8PZT et al., June 2023).
 ## Layout
 
 ```
-src/RhpV2.Client/      reusable client library + in-process mock server
-src/RhpV2.Tools/       `rhp` CLI (chat, mon, send, probe, serve)
-tests/RhpV2.Client.Tests/  xunit suite (framing, codecs, integration)
+src/RhpV2.Client/                    reusable client library + in-process mock server
+src/RhpV2.Tools/                     `rhp` CLI (chat, mon, send, probe, serve)
+tests/RhpV2.Client.Tests/            xunit suite (framing, codecs, mock-driven)
+tests/RhpV2.Client.IntegrationTests/ Testcontainers suite — drives ghcr.io/packethacking/xrouter
 ```
 
 ## The library
@@ -85,5 +86,10 @@ dotnet build
 dotnet test
 ```
 
-(31 tests; framing, codec, polymorphic JSON dispatch, correlated
-request/reply, server-pushed notifications, transport teardown.)
+* **Unit suite** (41 tests; runs everywhere): framing, codec,
+  polymorphic JSON dispatch, correlated request/reply, server-pushed
+  notifications, transport teardown.
+* **Integration suite** (15 tests; requires Docker): pulls
+  `ghcr.io/packethacking/xrouter` via Testcontainers and pins the
+  client against the real RHP server. Tests skip gracefully when
+  Docker isn't reachable, so the suite is green without it.

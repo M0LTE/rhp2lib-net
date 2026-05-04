@@ -7,6 +7,18 @@ feed, with a short summary per version.
 
 * Initial public docs site (mkdocs-material) wired up at
   <https://rhp2lib.pages.dev/>.
+* New `RhpV2.Client.IntegrationTests` project: drives the published
+  `ghcr.io/packethacking/xrouter` image via Testcontainers to pin
+  client behaviour against a real RHP server. Tests skip gracefully
+  when Docker isn't available.
+* Wire-format alignment: every reply now serialises `errCode` /
+  `errText` with capital C/T, matching what xrouter actually emits.
+  The published spec only mentions this as an AUTHREPLY quirk, but
+  integration testing confirmed it applies to every reply. Reads
+  remain case-insensitive so older / lowercase wire forms still parse.
+* Documentation updates: protocol primer now lists the additional
+  spec-vs-reality deltas observed against the real xrouter (global
+  handle namespace, post-bad-auth lockout, `RHPPORT` requirement).
 
 ## 0.1.x — initial cut
 

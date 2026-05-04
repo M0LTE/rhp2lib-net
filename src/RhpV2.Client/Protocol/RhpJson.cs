@@ -8,10 +8,14 @@ namespace RhpV2.Client.Protocol;
 /// JSON serialization helpers for RHPv2.
 ///
 /// The wire format uses a string discriminator field <c>type</c> on every
-/// message.  Because the spec mixes capitalisations (e.g. <c>errCode</c> on
-/// AUTHREPLY, <c>errcode</c> on most others) we configure
-/// <see cref="JsonSerializerOptions.PropertyNameCaseInsensitive"/> = true and
-/// keep concrete property names per message.
+/// message.  Real xrouter emits replies with <c>errCode</c>/<c>errText</c>
+/// (capital C/T) on *every* error-bearing reply — the published PWP-0222
+/// / PWP-0245 docs only mention this as a quirk of AUTHREPLY, but
+/// integration testing against ghcr.io/packethacking/xrouter shows it
+/// applies to every reply.  We configure
+/// <see cref="JsonSerializerOptions.PropertyNameCaseInsensitive"/> = true
+/// so any casing we encounter on read is tolerated, and write the
+/// canonical capitalised wire names.
 /// </summary>
 public static class RhpJson
 {
