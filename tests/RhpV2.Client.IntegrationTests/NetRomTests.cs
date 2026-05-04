@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using RhpV2.Client.Protocol;
 using Xunit;
 using ProtocolFamily = RhpV2.Client.Protocol.ProtocolFamily;
+using RhpV2.TestSupport;
 
 namespace RhpV2.Client.IntegrationTests;
 

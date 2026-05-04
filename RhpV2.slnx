@@ -4,7 +4,9 @@
     <Project Path="src/RhpV2.Tools/RhpV2.Tools.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/RhpV2.TestSupport/RhpV2.TestSupport.csproj" />
     <Project Path="tests/RhpV2.Client.Tests/RhpV2.Client.Tests.csproj" />
     <Project Path="tests/RhpV2.Client.IntegrationTests/RhpV2.Client.IntegrationTests.csproj" />
+    <Project Path="tests/RhpV2.Tools.IntegrationTests/RhpV2.Tools.IntegrationTests.csproj" />
   </Folder>
 </Solution>

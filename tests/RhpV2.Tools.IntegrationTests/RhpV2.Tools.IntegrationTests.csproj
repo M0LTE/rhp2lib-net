@@ -21,7 +21,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\RhpV2.Client\RhpV2.Client.csproj" />
+    <!-- ProjectReference (not just artifact lookup) so MSBuild builds
+         the Tools project before this one and we can resolve the
+         output path deterministically at runtime. -->
+    <ProjectReference Include="..\..\src\RhpV2.Tools\RhpV2.Tools.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Content"
+                      Private="false"
+                      SkipGetTargetFrameworkProperties="true" />
     <ProjectReference Include="..\RhpV2.TestSupport\RhpV2.TestSupport.csproj" />
   </ItemGroup>
 
