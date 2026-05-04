@@ -225,4 +225,97 @@ public class CliSmokeTests
             p.Dispose();
         }
     }
+
+    [Fact]
+    public async Task Chat_Connects_To_Local_Node_Sends_Command_And_Exits_On_Stdin_Eof()
+    {
+        // chat is the only fully-interactive sub-command. Drive it
+        // properly via stdin: connect AX.25 from CONSOLECALL to the
+        // node's NODECALL on the loopback port, wait for the connect
+        // banner the node emits ("Welcome to ...."), send a single
+        // "i\r" command, observe the info response, then close stdin
+        // — the chat command's input loop sees EOF, the stopReason
+        // task fires "stdin closed", and rhp shuts down with exit 0.
+        var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
+        var p = RhpProcess.Spawn(
+            new[]
+            {
+                "chat",
+                "--host", _fx.Host,
+                "--port", _fx.RhpPort.ToString(),
+                "--pfam", "ax25",
+                "--radio", "1",
+                "--local", "G9DUM",
+                "--remote", "G9DUM-1",
+            },
+            stdout, stderr, out var drain,
+            redirectStdin: true);
+
+        try
+        {
+            // Step 1: handle line — confirms the active OPEN was
+            // accepted and the AX.25 SABM is in flight.
+            await RhpProcess.WaitForStdoutAsync(
+                stdout,
+                s => s.Contains("type messages and press Enter"),
+                TimeSpan.FromSeconds(15),
+                "chat to print its handle / prompt line");
+
+            // Step 2: link up — chat's StatusChanged handler logs a
+            // "[status] handle=N Connected" line once the SABM/UA
+            // exchange completes. xrouter doesn't auto-emit a CTEXT
+            // banner over AX.25 — text only flows in response to a
+            // command — so this is the marker that proves the link
+            // is up and ready to receive input from us.
+            await RhpProcess.WaitForStdoutAsync(
+                stdout,
+                s => s.Contains("[status]") && s.Contains("Connected"),
+                TimeSpan.FromSeconds(15),
+                "AX.25 link reaching Connected state");
+
+            // Step 3: send "i" (info command) — chat appends \r
+            // already, so we just write "i\n" to its stdin to send a
+            // line.
+            await p.StandardInput.WriteLineAsync("i");
+            await p.StandardInput.FlushAsync();
+
+            // Step 4: info response — the node command processor
+            // returns its INFOTEXT.
+            await RhpProcess.WaitForStdoutAsync(
+                stdout,
+                s => s.Contains("rhp2lib-net integration tests"),
+                TimeSpan.FromSeconds(10),
+                "remote node's INFOTEXT response to 'i'");
+
+            // Step 5: close stdin → chat's input loop sees null,
+            // pushes "stdin closed" reason, closes the link, exits 0.
+            p.StandardInput.Close();
+
+            using var exitCts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try { await p.WaitForExitAsync(exitCts.Token); }
+            catch (OperationCanceledException)
+            {
+                p.Kill(entireProcessTree: true);
+                await p.WaitForExitAsync();
+                string snap;
+                lock (stdout) snap = stdout.ToString();
+                Assert.Fail($"chat did not exit on stdin EOF within 10s. stdout=\n{snap}\nstderr=\n{stderr}");
+            }
+
+            Assert.True(p.ExitCode == 0,
+                $"chat exited non-zero ({p.ExitCode}). stdout=\n{stdout}\nstderr=\n{stderr}");
+
+            string final;
+            lock (stdout) final = stdout.ToString();
+            Assert.Contains("stdin closed", final);
+            Assert.Contains("closing link", final);
+        }
+        finally
+        {
+            if (!p.HasExited) try { p.Kill(entireProcessTree: true); } catch { }
+            await drain;
+            p.Dispose();
+        }
+    }
 }
