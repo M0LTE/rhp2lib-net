@@ -1,8 +1,17 @@
 # Writing integration tests
 
 This page is a recipe book for testing code that uses `RhpV2.Client`.
-The library's own xunit suite (31 tests) follows these patterns; yours
-can too.
+The library's own xunit suite follows these patterns; yours can too.
+
+The library has two test projects:
+
+* **`tests/RhpV2.Client.Tests`** — fast unit tests against
+  `MockRhpServer`, plus framing/codec/parser tests. Runs everywhere.
+* **`tests/RhpV2.Client.IntegrationTests`** — black-box tests that
+  spin up `ghcr.io/packethacking/xrouter` via Testcontainers and drive
+  the real RHP server. Each test skips gracefully when Docker isn't
+  available, so the project still builds (and the suite still passes)
+  without a Docker daemon.
 
 ## Skeleton
 

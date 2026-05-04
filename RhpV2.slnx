@@ -5,5 +5,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RhpV2.Client.Tests/RhpV2.Client.Tests.csproj" />
+    <Project Path="tests/RhpV2.Client.IntegrationTests/RhpV2.Client.IntegrationTests.csproj" />
   </Folder>
 </Solution>

@@ -41,12 +41,38 @@ public class MessageSerializationTests
     [Fact]
     public void OpenReply_Deserializes_From_Spec_Example()
     {
+        // PWP-0222 spec example uses lowercase errcode/errtext.
         var wire = """{"type":"openReply","id":7,"handle":1234,"errcode":0,"errtext":"Ok"}""";
         var msg = (OpenReplyMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
         Assert.Equal(7, msg.Id);
         Assert.Equal(1234, msg.Handle);
         Assert.Equal(0, msg.ErrCode);
         Assert.Equal("Ok", msg.ErrText);
+    }
+
+    [Fact]
+    public void OpenReply_Deserializes_From_Real_Xrouter_Wire_Format()
+    {
+        // Real xrouter (ghcr.io/packethacking/xrouter) sends errCode and
+        // errText with capital C/T on every reply, *not* just AUTHREPLY
+        // as the published spec implies.
+        var wire = """{"type":"openReply","id":7,"handle":1234,"errCode":0,"errText":"Ok"}""";
+        var msg = (OpenReplyMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
+        Assert.Equal(0, msg.ErrCode);
+        Assert.Equal("Ok", msg.ErrText);
+    }
+
+    [Fact]
+    public void OpenReply_Serializes_With_CapitalC_ErrCode_To_Match_Xrouter()
+    {
+        // The library writes the capitalised form on the wire so the
+        // mock server's output is byte-identical to the real xrouter's.
+        var json = Json(new OpenReplyMessage { Handle = 1, ErrCode = 0, ErrText = "Ok" });
+        using var doc = JsonDocument.Parse(json);
+        Assert.True(doc.RootElement.TryGetProperty("errCode", out _));
+        Assert.True(doc.RootElement.TryGetProperty("errText", out _));
+        Assert.False(doc.RootElement.TryGetProperty("errcode", out _));
+        Assert.False(doc.RootElement.TryGetProperty("errtext", out _));
     }
 
     [Fact]
@@ -85,11 +111,52 @@ public class MessageSerializationTests
     [Fact]
     public void Accept_Decodes_Child_And_Remote()
     {
+        // PWP-0222 spec example writes port as an unquoted number.
         var wire = """{"type":"accept","seqno":3,"handle":1,"child":2,"remote":"M0XYZ","local":"G8PZT","port":2}""";
         var msg = (AcceptMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
         Assert.Equal(1, msg.Handle);
         Assert.Equal(2, msg.Child);
         Assert.Equal("M0XYZ", msg.Remote);
+        Assert.Equal("2", msg.Port);
+    }
+
+    [Fact]
+    public void Accept_Decodes_Port_From_Real_Xrouter_String_Form()
+    {
+        // Real xrouter sends port as a JSON string, not an unquoted
+        // number. The library normalises both forms to string?.
+        var wire = """{"type":"accept","seqno":3,"handle":1,"child":2,"remote":"M0XYZ","local":"G8PZT","port":"2"}""";
+        var msg = (AcceptMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
+        Assert.Equal("2", msg.Port);
+    }
+
+    [Fact]
+    public void Recv_TraceMode_Decodes_Numeric_Port_And_Extra_Fields()
+    {
+        // Real xrouter TRACE-mode recv frames carry port as a JSON
+        // number (unlike DGRAM where port is a string), plus tseq, ilen,
+        // pid, ptcl that the spec doesn't enumerate.
+        var wire = """{"type":"recv","seqno":1,"handle":5,"action":"sent","port":1,"srce":"G9DUM","dest":"G9DUM-1","ctrl":0,"frametype":"I","rseq":0,"tseq":0,"cr":"C","ilen":2,"pid":240,"ptcl":"DATA","data":"i\r"}""";
+        var msg = (RecvMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
+        Assert.Equal("1", msg.Port);          // numeric on the wire, string in the model
+        Assert.Equal(0, msg.Tseq);
+        Assert.Equal(2, msg.Ilen);
+        Assert.Equal(240, msg.Pid);
+        Assert.Equal("DATA", msg.Ptcl);
+        Assert.Equal("I", msg.FrameType);
+    }
+
+    [Fact]
+    public void Recv_DgramMode_Decodes_String_Port_And_Addressing()
+    {
+        // Real xrouter DGRAM-mode recv carries port as a JSON string
+        // and includes local/remote addressing.
+        var wire = """{"type":"recv","handle":7,"action":"rcvd","port":"2","remote":"G8PZT-3","local":"G9DUM-4","data":"hello UI\r"}""";
+        var msg = (RecvMessage)RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
+        Assert.Equal("2", msg.Port);
+        Assert.Equal("G8PZT-3", msg.Remote);
+        Assert.Equal("G9DUM-4", msg.Local);
+        Assert.Equal("hello UI\r", msg.Data);
     }
 
     [Fact]
@@ -118,6 +185,43 @@ public class MessageSerializationTests
         var msg = RhpJson.Deserialize(Encoding.UTF8.GetBytes(wire));
         var typed = Assert.IsType<ConnectReplyMessage>(msg);
         Assert.Equal(50, typed.Handle);
+    }
+
+    [Theory]
+    [InlineData("bindReply")]
+    [InlineData("listenReply")]
+    [InlineData("connectReply")]
+    [InlineData("sendReply")]
+    [InlineData("sendtoReply")]
+    [InlineData("statusReply")]
+    [InlineData("closeReply")]
+    [InlineData("socketReply")]
+    public void ReplyMessages_Serialize_With_CapitalC_ErrCode(string type)
+    {
+        // Pin the wire-output casing for every reply type produced by the
+        // mock so its bytes match what real xrouter emits.
+        RhpMessage msg = type switch
+        {
+            "bindReply"    => new BindReplyMessage    { Handle = 1, ErrCode = 14, ErrText = "x" },
+            "listenReply"  => new ListenReplyMessage  { Handle = 1, ErrCode = 14, ErrText = "x" },
+            "connectReply" => new ConnectReplyMessage { Handle = 1, ErrCode = 14, ErrText = "x" },
+            "sendReply"    => new SendReplyMessage    { Handle = 1, ErrCode = 14, ErrText = "x" },
+            "sendtoReply"  => new SendToReplyMessage  { Handle = 1, ErrCode = 14, ErrText = "x" },
+            "statusReply"  => new StatusReplyMessage  { Handle = 1, ErrCode = 14, ErrText = "x" },
+            "closeReply"   => new CloseReplyMessage   { Handle = 1, ErrCode = 14, ErrText = "x" },
+            "socketReply"  => new SocketReplyMessage  { Handle = 1, ErrCode = 14, ErrText = "x" },
+            _ => throw new InvalidOperationException(type),
+        };
+
+        var json = Json(msg);
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal(type, doc.RootElement.GetProperty("type").GetString());
+        Assert.True(doc.RootElement.TryGetProperty("errCode", out _),
+            $"{type} missing errCode capital C: {json}");
+        Assert.True(doc.RootElement.TryGetProperty("errText", out _),
+            $"{type} missing errText capital T: {json}");
+        Assert.False(doc.RootElement.TryGetProperty("errcode", out _),
+            $"{type} unexpectedly has lowercase errcode: {json}");
     }
 
     [Fact]

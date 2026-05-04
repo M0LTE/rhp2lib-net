@@ -152,7 +152,10 @@ public sealed class RhpClient : IAsyncDisposable, IDisposable
                 throw new RhpServerException(b.ErrCode, b.ErrText);
             case ListenReplyMessage l when l.ErrCode != 0:
                 throw new RhpServerException(l.ErrCode, l.ErrText);
-            case ConnectReplyMessage c when c.ErrCode != 0:
+            // xrouter quirk: connectReply.errCode mirrors the handle on
+            // success ("Ok"). Treat the textual "Ok" as authoritative
+            // and only throw when the text indicates an actual error.
+            case ConnectReplyMessage c when c.ErrCode != 0 && !IsOkText(c.ErrText):
                 throw new RhpServerException(c.ErrCode, c.ErrText);
             case SendReplyMessage sr when sr.ErrCode != 0:
                 throw new RhpServerException(sr.ErrCode, sr.ErrText);
@@ -164,6 +167,9 @@ public sealed class RhpClient : IAsyncDisposable, IDisposable
                 throw new RhpServerException(cl.ErrCode, cl.ErrText);
         }
     }
+
+    private static bool IsOkText(string? errText) =>
+        errText is not null && errText.Equals("Ok", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Send a fire-and-forget message (no reply correlation).  When the
@@ -313,8 +319,105 @@ public sealed class RhpClient : IAsyncDisposable, IDisposable
     public Task CloseAsync(int handle, CancellationToken ct = default)
         => RequestAsync<CloseReplyMessage>(new CloseMessage { Handle = handle }, ct);
 
-    public Task<StatusReplyMessage> QueryStatusAsync(int handle, CancellationToken ct = default)
-        => RequestAsync<StatusReplyMessage>(new StatusMessage { Handle = handle }, ct);
+    /// <summary>
+    /// Query the current link state for a handle.
+    /// </summary>
+    /// <remarks>
+    /// Per spec, the server only sends a <c>statusReply</c> on query
+    /// failure (e.g. invalid handle); on success it instead emits a
+    /// <c>status</c> notification carrying the current flags but **no
+    /// <c>id</c>** for correlation.  This method races those two
+    /// possible responses: it subscribes to <see cref="StatusChanged"/>
+    /// for the matching handle, sends the request, and returns the
+    /// flags from whichever response wins.  An error response throws
+    /// <see cref="RhpServerException"/>; a success without a status
+    /// notification within <paramref name="responseTimeout"/> throws
+    /// <see cref="RhpProtocolException"/>.
+    ///
+    /// <para>
+    /// Caveat: a server-pushed <c>status</c> notification on the same
+    /// handle that arrives concurrently with the query will satisfy
+    /// the wait — the library has no way to distinguish "reply to my
+    /// query" from "unrelated state change" because xrouter doesn't
+    /// echo the request <c>id</c>.  See the bug report linked in the
+    /// project README.
+    /// </para>
+    /// </remarks>
+    public async Task<StatusFlags> QueryStatusAsync(
+        int handle,
+        TimeSpan? responseTimeout = null,
+        CancellationToken ct = default)
+    {
+        var timeout = responseTimeout ?? TimeSpan.FromSeconds(5);
+
+        var statusTcs = new TaskCompletionSource<StatusFlags>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<RhpStatusEventArgs> handler = (_, e) =>
+        {
+            if (e.Message.Handle == handle && e.Message.Flags is int f)
+                statusTcs.TrySetResult((StatusFlags)f);
+        };
+        StatusChanged += handler;
+        try
+        {
+            // Send with id correlation so error replies (which DO echo
+            // id) come back via the request/reply path.
+            var requestId = NextRequestId();
+            var request = new StatusMessage { Handle = handle, Id = requestId };
+            var errorTcs = new TaskCompletionSource<RhpMessage>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            if (!_pending.TryAdd(requestId, errorTcs))
+                throw new InvalidOperationException(
+                    $"Duplicate request id {requestId}.");
+
+            try
+            {
+                await SendAsync(request, ct).ConfigureAwait(false);
+
+                using var timeoutCts = new CancellationTokenSource(timeout);
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+                    ct, timeoutCts.Token);
+                using var reg = linked.Token.Register(() =>
+                {
+                    statusTcs.TrySetCanceled(linked.Token);
+                    errorTcs.TrySetCanceled(linked.Token);
+                });
+
+                var winner = await Task.WhenAny(statusTcs.Task, errorTcs.Task)
+                    .ConfigureAwait(false);
+
+                if (winner == errorTcs.Task)
+                {
+                    var err = await errorTcs.Task.ConfigureAwait(false);
+                    if (err is StatusReplyMessage sr)
+                    {
+                        if (sr.ErrCode != 0)
+                            throw new RhpServerException(sr.ErrCode, sr.ErrText);
+                        // statusReply with errCode 0 isn't expected per
+                        // spec, but tolerate it as success-without-flags.
+                        return StatusFlags.None;
+                    }
+                    throw new RhpProtocolException(
+                        $"Unexpected reply type {err.GetType().Name} for status query.");
+                }
+
+                return await statusTcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                throw new RhpProtocolException(
+                    $"Status query for handle {handle} timed out after {timeout}.");
+            }
+            finally
+            {
+                _pending.TryRemove(requestId, out _);
+            }
+        }
+        finally
+        {
+            StatusChanged -= handler;
+        }
+    }
 
     // -----------------------------------------------------------------
     //  Disposal

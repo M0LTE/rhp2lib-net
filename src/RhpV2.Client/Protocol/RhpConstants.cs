@@ -92,6 +92,14 @@ public static class RhpErrorCode
     public const int NoRoute = 15;
     public const int OperationNotSupported = 16;
 
+    /// <summary>
+    /// Returned by <c>send</c> on a stream socket whose downlink isn't
+    /// connected (e.g. SABM/UA hasn't completed, or the peer has
+    /// disconnected). Not enumerated in PWP-0222 / PWP-0245 but real
+    /// xrouter emits it as <c>errCode:17, errText:"Not connected"</c>.
+    /// </summary>
+    public const int NotConnected = 17;
+
     /// <summary>Canonical text for an error code (matching the spec).</summary>
     public static string Text(int code) => code switch
     {
@@ -112,6 +120,7 @@ public static class RhpErrorCode
         Unauthorised => "Unauthorised",
         NoRoute => "No Route",
         OperationNotSupported => "Operation not supported",
+        NotConnected => "Not connected",
         _ => $"Unknown ({code})",
     };
 
