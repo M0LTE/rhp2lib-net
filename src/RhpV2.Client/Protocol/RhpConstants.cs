@@ -93,10 +93,13 @@ public static class RhpErrorCode
     public const int OperationNotSupported = 16;
 
     /// <summary>
-    /// Returned by <c>send</c> on a stream socket whose downlink isn't
+    /// Returned by <c>send</c> on a STREAM socket whose downlink isn't
     /// connected (e.g. SABM/UA hasn't completed, or the peer has
-    /// disconnected). Not enumerated in PWP-0222 / PWP-0245 but real
-    /// xrouter emits it as <c>errCode:17, errText:"Not connected"</c>.
+    /// disconnected). Not enumerated in PWP-0222 / PWP-0245, but
+    /// RHPTEST (the protocol author's test harness) asserts it, so it's
+    /// intentional rather than a bug. Note the asymmetry: the same
+    /// condition on an unconnected DGRAM socket returns
+    /// <see cref="InvalidRemoteAddress"/> (7), also per RHPTEST.
     /// </summary>
     public const int NotConnected = 17;
 

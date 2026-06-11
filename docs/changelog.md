@@ -5,7 +5,22 @@ feed, with a short summary per version.
 
 ## Unreleased
 
-_Nothing yet._
+### Fixed (alignment with RHPTEST-documented behaviour)
+
+* `BindAsync` / `BindMessage.Local` can now omit the local address —
+  RAW sockets bind to a port only, and supplying an address returns
+  errCode 16, so the previous always-emitted `"local"` made a
+  spec-correct RAW bind impossible. `local` is now an optional
+  parameter (source-compatible).
+* `MockRhpServer` now pushes a `status` CONNECTED notification after a
+  successful active `open` or `connect`, matching real xrouter's
+  lifecycle — previously code awaiting Connected against the mock
+  hung forever.
+* `MockRhpServer` notification `seqno` now starts at 0 (was 2),
+  matching the contract RHPTEST asserts.
+* Doc comments: errCode 17 is intentional (RHPTEST asserts it; the
+  same condition on DGRAM returns 7), and `listen` on RAW sockets
+  sets trace flags.
 
 ## 0.3.0 — client robustness
 

@@ -735,6 +735,138 @@ public class Ax25OverAxudpTests
         try { await nodeB.CloseAsync(sender); } catch { }
     }
 
+    [Fact]
+    public async Task Raw_Socket_Binds_Port_Only_And_Listen_Sets_Trace_Flags()
+    {
+        // RHPTEST: RAW sockets bind to a port with NO local address
+        // (supplying one returns errCode 16), and `listen` on a RAW
+        // socket sets the packet-trace flags — the BSD-path
+        // equivalent of open's trace bits. Pin the whole sequence.
+
+        await using var rawClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+        await using var trafficClient = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var rawFrameTcs = new TaskCompletionSource<RecvMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        rawClient.Received += (_, e) =>
+        {
+            if (e.Message.Action is not null && e.Message.Data.Length > 14)
+                rawFrameTcs.TrySetResult(e.Message);
+        };
+
+        var h = await rawClient.SocketAsync(ProtocolFamily.Ax25, SocketMode.Raw);
+
+        // Address on a RAW bind is rejected...
+        var ex = await Assert.ThrowsAsync<RhpServerException>(
+            async () => await rawClient.BindAsync(h, local: "G9DUM-13", port: "1"));
+        Assert.Equal(RhpErrorCode.OperationNotSupported, ex.ErrorCode);
+
+        // ...port-only bind succeeds, then listen sets the trace flags.
+        await rawClient.BindAsync(h, port: "1");
+        await rawClient.ListenAsync(h,
+            OpenFlags.TraceIncoming | OpenFlags.TraceOutgoing | OpenFlags.TraceSupervisory);
+
+        // Generate AX.25 traffic on port 1 (loopback).
+        var caller = await trafficClient.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await trafficClient.BindAsync(caller, local: "G9DUM-13", port: "1");
+        await trafficClient.ConnectAsync(caller, remote: _fx.NodeACallsign);
+
+        var raw = await rawFrameTcs.Task.WaitAsync(ConnectTimeout);
+        Assert.NotNull(raw.Action);
+
+        try { await trafficClient.CloseAsync(caller); } catch { }
+        try { await rawClient.CloseAsync(h); } catch { }
+    }
+
+    [Fact]
+    public async Task First_Status_On_Fresh_Connection_Has_Seqno_Zero()
+    {
+        // RHPTEST asserts the first notification after an open is a
+        // status with seqno 0 — implying seqno is numbered per RHP
+        // connection, not globally. Verify on a fresh connection to a
+        // long-lived xrouter that has already pushed notifications to
+        // other clients.
+
+        await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);
+
+        var statusTcs = new TaskCompletionSource<StatusMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StatusChanged += (_, e) => statusTcs.TrySetResult(e.Message);
+
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await client.BindAsync(h, local: "G9DUM-12", port: "1");
+        await client.ConnectAsync(h, remote: _fx.NodeACallsign);
+
+        var status = await statusTcs.Task.WaitAsync(ConnectTimeout);
+        Assert.Equal(h, status.Handle);
+        Assert.True((status.Flags & (int)StatusFlags.Connected) != 0);
+        Assert.Equal(0, status.Seqno);
+
+        try { await client.CloseAsync(h); } catch { }
+    }
+
+    [Fact]
+    public async Task Dgram_Sendto_With_Empty_Data_Returns_Unspecified()
+    {
+        // RHPTEST documents zero-length data as legal — but that test
+        // was INET/UDP ("a UDP header alone" is valid UDP). On AX.25
+        // DGRAM the containerised xrouter rejects an empty payload
+        // with errCode 1 ("Unspecified"). Pin the per-family
+        // difference; omitting the field entirely is the protocol
+        // violation (12) — see Sendto_Without_Data_Field_... below.
+
+        const string BSenderCall = "G8PZT-8";
+
+        await using var nodeB = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeBRhpPort);
+
+        var sender = await nodeB.SocketAsync(ProtocolFamily.Ax25, SocketMode.Dgram);
+        await nodeB.BindAsync(sender, local: BSenderCall, port: "2");
+
+        var ex = await Assert.ThrowsAsync<RhpServerException>(
+            async () => await nodeB.SendToAsync(sender,
+                data: string.Empty,
+                port: "2", local: BSenderCall, remote: "G9DUM-8"));
+        Assert.Equal(RhpErrorCode.Unspecified, ex.ErrorCode);
+
+        try { await nodeB.CloseAsync(sender); } catch { }
+    }
+
+    [Fact]
+    public async Task Sendto_Without_Data_Field_Returns_BadParameter()
+    {
+        // RHPTEST: the data field "must always be included even if it
+        // is empty" — omitting it is a protocol violation (error 12).
+        // The library always emits data, so drive this with raw frames.
+
+        using var tcp = new TcpClient();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await tcp.ConnectAsync(_fx.Host, _fx.NodeARhpPort, cts.Token);
+        await using var stream = tcp.GetStream();
+
+        await SendFrame(stream, new JsonObject
+        {
+            ["type"] = "socket", ["id"] = 1, ["pfam"] = "ax25", ["mode"] = "dgram",
+        });
+        var socketReply = await ReadObject(stream, cts.Token);
+        var handle = socketReply["handle"]!.GetValue<int>();
+
+        await SendFrame(stream, new JsonObject
+        {
+            ["type"] = "bind", ["id"] = 2, ["handle"] = handle,
+            ["local"] = "G9DUM-W", ["port"] = "2",
+        });
+        await ReadObject(stream, cts.Token);
+
+        await SendFrame(stream, new JsonObject
+        {
+            ["type"] = "sendto", ["id"] = 3, ["handle"] = handle,
+            ["remote"] = "QST",
+            // no "data" field — deliberately
+        });
+        var reply = await ReadObject(stream, cts.Token);
+        Assert.Equal(RhpErrorCode.BadParameter, reply["errCode"]!.GetValue<int>());
+    }
+
     private static async Task SendFrame(NetworkStream stream, JsonObject obj)
     {
         var bytes = Encoding.UTF8.GetBytes(obj.ToJsonString());
