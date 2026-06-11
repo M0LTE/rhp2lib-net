@@ -174,6 +174,72 @@ public class RhpClientTests
     }
 
     [Fact]
+    public async Task Active_Open_Pushes_Connected_Status_With_Seqno_Zero()
+    {
+        await using var server = new MockRhpServer();
+        server.Start();
+        await using var client = await RhpClient.ConnectAsync("127.0.0.1", server.Endpoint.Port);
+
+        var tcs = new TaskCompletionSource<StatusMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StatusChanged += (_, e) => tcs.TrySetResult(e.Message);
+
+        var h = await client.OpenAsync(
+            ProtocolFamily.Ax25, SocketMode.Stream,
+            port: "1", local: "G8PZT", remote: "M0XYZ", flags: OpenFlags.Active);
+
+        // The mock mirrors real xrouter: a successful active open is
+        // followed by a pushed status CONNECTED, numbered from seqno 0.
+        var status = await tcs.Task.WaitAsync(DefaultTimeout);
+        Assert.Equal(h, status.Handle);
+        Assert.True(((StatusFlags)status.Flags! & StatusFlags.Connected) != 0);
+        Assert.Equal(0, status.Seqno);
+    }
+
+    [Fact]
+    public async Task Bsd_Connect_Pushes_Connected_Status()
+    {
+        await using var server = new MockRhpServer();
+        server.Start();
+        await using var client = await RhpClient.ConnectAsync("127.0.0.1", server.Endpoint.Port);
+
+        var tcs = new TaskCompletionSource<StatusMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StatusChanged += (_, e) => tcs.TrySetResult(e.Message);
+
+        var h = await client.SocketAsync(ProtocolFamily.Ax25, SocketMode.Stream);
+        await client.ConnectAsync(h, "M0XYZ");
+
+        var status = await tcs.Task.WaitAsync(DefaultTimeout);
+        Assert.Equal(h, status.Handle);
+        Assert.True(((StatusFlags)status.Flags! & StatusFlags.Connected) != 0);
+    }
+
+    [Fact]
+    public async Task Passive_Open_Does_Not_Push_Status()
+    {
+        await using var server = new MockRhpServer();
+        server.Start();
+        await using var client = await RhpClient.ConnectAsync("127.0.0.1", server.Endpoint.Port);
+
+        var tcs = new TaskCompletionSource<StatusMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StatusChanged += (_, e) => tcs.TrySetResult(e.Message);
+
+        await client.OpenAsync(
+            ProtocolFamily.Ax25, SocketMode.Stream,
+            port: "1", local: "G8PZT", flags: OpenFlags.Passive);
+        var active = await client.OpenAsync(
+            ProtocolFamily.Ax25, SocketMode.Stream,
+            port: "1", local: "G8PZT-1", remote: "M0XYZ", flags: OpenFlags.Active);
+
+        // Frames are ordered on one connection: if the passive open had
+        // pushed a status, it would have arrived before the active one's.
+        var status = await tcs.Task.WaitAsync(DefaultTimeout);
+        Assert.Equal(active, status.Handle);
+    }
+
+    [Fact]
     public async Task ParallelRequests_Are_Correlated_By_Id()
     {
         await using var server = new MockRhpServer();

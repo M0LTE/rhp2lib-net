@@ -269,4 +269,16 @@ public class MessageSerializationTests
         Assert.Null(unk.Id);
         Assert.Null(unk.Seqno);
     }
+
+    [Fact]
+    public void Bind_Omits_Local_When_Null()
+    {
+        // RAW sockets bind to a port only (RHPTEST: supplying an
+        // address on a RAW bind returns errCode 16), so the field must
+        // be omittable on the wire.
+        var json = Json(new BindMessage { Handle = 5, Port = "1", Id = 1 });
+        using var doc = JsonDocument.Parse(json);
+        Assert.False(doc.RootElement.TryGetProperty("local", out _));
+        Assert.Equal("1", doc.RootElement.GetProperty("port").GetString());
+    }
 }

@@ -318,9 +318,22 @@ public sealed class RhpClient : IAsyncDisposable, IDisposable
         return reply.Handle ?? throw new RhpProtocolException("socketReply missing handle.");
     }
 
-    public Task BindAsync(int handle, string local, string? port = null, CancellationToken ct = default)
+    /// <summary>
+    /// Bind a local address and/or radio port to a socket.  RAW sockets
+    /// bind to a <paramref name="port"/> only — pass <c>null</c> for
+    /// <paramref name="local"/> (supplying an address on RAW returns
+    /// errCode 16 per RHPTEST).
+    /// </summary>
+    public Task BindAsync(int handle, string? local = null, string? port = null, CancellationToken ct = default)
         => RequestAsync<BindReplyMessage>(new BindMessage { Handle = handle, Local = local, Port = port }, ct);
 
+    /// <summary>
+    /// Listen on a bound socket.  On RAW sockets, RHPTEST documents
+    /// <paramref name="flags"/> as setting the packet-trace directions
+    /// (<see cref="OpenFlags.TraceIncoming"/> /
+    /// <see cref="OpenFlags.TraceOutgoing"/>) — the BSD-path equivalent
+    /// of the trace bits on <c>open</c>.
+    /// </summary>
     public Task ListenAsync(int handle, OpenFlags flags = OpenFlags.Passive, CancellationToken ct = default)
         => RequestAsync<ListenReplyMessage>(new ListenMessage { Handle = handle, Flags = (int)flags }, ct);
 

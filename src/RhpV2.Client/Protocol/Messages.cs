@@ -128,7 +128,13 @@ public sealed class BindMessage : RhpMessage
 {
     public override string Type => RhpMessageType.Bind;
     [JsonPropertyName("handle")] public int Handle { get; set; }
-    [JsonPropertyName("local")] public string Local { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Local address.  Omitted for RAW sockets, which per RHPTEST bind
+    /// to a port only — supplying an address returns errCode 16.
+    /// </summary>
+    [JsonPropertyName("local")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Local { get; set; }
+
     [JsonPropertyName("port")][JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Port { get; set; }
 }
 

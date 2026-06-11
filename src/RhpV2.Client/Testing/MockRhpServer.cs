@@ -27,7 +27,9 @@ public sealed class MockRhpServer : IAsyncDisposable
     private readonly List<MockRhpSession> _sessions = new();
     private readonly object _sessionsLock = new();
     private int _nextHandle = 100;
-    private int _nextSeqno = 1;
+    // Real xrouter numbers notifications from 0 (RHPTEST asserts the
+    // first post-open status carries seqno 0, the first recv seqno 1).
+    private int _nextSeqno = -1;
 
     /// <summary>The TCP endpoint the server is bound to (for client connection).</summary>
     public IPEndPoint Endpoint { get; }
@@ -170,6 +172,26 @@ internal sealed class MockRhpSession : IAsyncDisposable
                     if (reply.Seqno is null && incoming.Id is int id)
                         reply.Id = id;
                     await WriteAsync(reply, ct).ConfigureAwait(false);
+
+                    // Real xrouter reports active-open / connect outcomes
+                    // asynchronously: a successful handshake pushes a
+                    // status CONNECTED notification after the reply.
+                    var connectedHandle = (incoming, reply) switch
+                    {
+                        (OpenMessage o, OpenReplyMessage { ErrCode: 0 } r)
+                            when (o.Flags & (int)OpenFlags.Active) != 0 => (int?)r.Handle,
+                        (ConnectMessage, ConnectReplyMessage { ErrCode: 0 } r) => r.Handle,
+                        _ => null,
+                    };
+                    if (connectedHandle is int ch)
+                    {
+                        await WriteAsync(new StatusMessage
+                        {
+                            Handle = ch,
+                            Flags = (int)StatusFlags.Connected,
+                            Seqno = _server.NextSeqno(),
+                        }, ct).ConfigureAwait(false);
+                    }
                 }
             }
         }
