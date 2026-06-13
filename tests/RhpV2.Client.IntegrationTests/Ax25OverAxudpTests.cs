@@ -329,7 +329,7 @@ public class Ax25OverAxudpTests
         // surfaces it correctly.
         //
         // Stays safely under the ~8 KB per-`send` ceiling
-        // (xrouter/M0LTE/rhp2lib-net#7) so the request doesn't get
+        // (xrouter/packet-net/rhp2lib-net#7) so the request doesn't get
         // silently dropped.
 
         await using var client = await RhpClient.ConnectAsync(_fx.Host, _fx.NodeARhpPort);

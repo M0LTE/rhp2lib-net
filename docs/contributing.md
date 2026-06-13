@@ -3,7 +3,7 @@
 ## Local build
 
 ```sh
-git clone https://github.com/M0LTE/rhp2lib-net.git
+git clone https://github.com/packet-net/rhp2lib-net.git
 cd rhp2lib-net
 dotnet build RhpV2.slnx
 dotnet test  RhpV2.slnx
@@ -62,7 +62,7 @@ All artifacts are attached to the auto-generated GitHub Release.
 
 ## Reporting issues
 
-Open a [GitHub issue](https://github.com/M0LTE/rhp2lib-net/issues) with:
+Open a [GitHub issue](https://github.com/packet-net/rhp2lib-net/issues) with:
 
 * Which release tag (or commit SHA) you're running.
 * The wire transcript if you can capture one — `tcpdump -X -i lo port

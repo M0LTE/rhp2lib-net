@@ -56,7 +56,7 @@ distinguish "the answer to my query" from "an unrelated link-state
 change that happened to arrive at the same moment".
 
 This library's
-[`QueryStatusAsync`](https://github.com/M0LTE/rhp2lib-net/blob/main/src/RhpV2.Client/RhpClient.cs)
+[`QueryStatusAsync`](https://github.com/packet-net/rhp2lib-net/blob/main/src/RhpV2.Client/RhpClient.cs)
 has to race an event subscription against the error-reply path, and its
 own doc comment admits the race can be satisfied by a coincidental
 push.  Roughly forty lines of careful code stand in for one echoed
@@ -74,7 +74,7 @@ A successful `connect` returns `errCode` equal to the socket handle
 universal "`errCode == 0` means success" contract, and it forces
 clients to fall back to *string-comparing `errText`* as the success
 signal — which is what this library does
-([pinned at the wire level](https://github.com/M0LTE/rhp2lib-net/blob/main/tests/RhpV2.Client.IntegrationTests/Ax25OverAxudpTests.cs)
+([pinned at the wire level](https://github.com/packet-net/rhp2lib-net/blob/main/tests/RhpV2.Client.IntegrationTests/Ax25OverAxudpTests.cs)
 so we notice when it's fixed).
 
 **Suggestion:** `errCode: 0` on success, like every other reply.
@@ -146,7 +146,7 @@ A conforming JSON library is free to emit either.
 This library adopts the convention that works against the real xrouter:
 bytes map 1:1 to code points U+0000–U+00FF (Latin-1) and everything
 non-ASCII is `\u00XX`-escaped, which
-[round-trips byte-perfectly over real RF-path AX.25](https://github.com/M0LTE/rhp2lib-net/blob/main/tests/RhpV2.Client.IntegrationTests/Ax25OverAxudpTests.cs)
+[round-trips byte-perfectly over real RF-path AX.25](https://github.com/packet-net/rhp2lib-net/blob/main/tests/RhpV2.Client.IntegrationTests/Ax25OverAxudpTests.cs)
 (see `Binary_Bytes_Round_Trip_Via_Dgram_Through_Real_Xrouter`).  But
 nothing in the published papers says this is *the* convention, and the
 cost is real: six wire bytes per high byte means a worst-case binary
@@ -180,7 +180,7 @@ and `close` notifications.
 ### 7. Socket handles are global, not per-connection
 
 Handles are allocated from a single pool inside xrouter, and — as the
-[integration suite pins](https://github.com/M0LTE/rhp2lib-net/blob/main/tests/RhpV2.Client.IntegrationTests/RealXRouterTests.cs)
+[integration suite pins](https://github.com/packet-net/rhp2lib-net/blob/main/tests/RhpV2.Client.IntegrationTests/RealXRouterTests.cs)
 (`Handles_Are_Globally_Numbered_Across_Connections`) — a handle
 allocated on one RHP connection can be *operated on* from another.
 With a single trusted client this is harmless; with several clients on
@@ -299,7 +299,7 @@ Everything here can ship without breaking a single deployed client:
 | 9 | Document the published errata (casing, `port` types, TRACE fields, `errCode: 17`) as normative | — |
 
 Item 9 deserves a sentence: this library's
-[integration suite](https://github.com/M0LTE/rhp2lib-net/tree/main/tests/RhpV2.Client.IntegrationTests)
+[integration suite](https://github.com/packet-net/rhp2lib-net/tree/main/tests/RhpV2.Client.IntegrationTests)
 is in effect a machine-checkable errata document for PWP-0222 — several
 tests are deliberately written to *fail when xrouter changes
 behaviour*, so a v2.1 spec could largely be transcribed from it, and
@@ -332,5 +332,5 @@ evening even shorter, and gives the protocol's author useful raw
 material if and when a revision happens.
 
 Discussion welcome — the OARC `#packet` channels or this repo's
-[issue tracker](https://github.com/M0LTE/rhp2lib-net/issues) are both
+[issue tracker](https://github.com/packet-net/rhp2lib-net/issues) are both
 good places.

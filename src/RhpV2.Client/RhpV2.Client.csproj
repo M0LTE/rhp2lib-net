@@ -13,7 +13,7 @@
     <Description>A .NET client library for the XRouter RHPv2 (Remote Host Protocol v2) JSON-over-TCP packet engine protocol.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/M0LTE/rhp2lib-net</RepositoryUrl>
+    <RepositoryUrl>https://github.com/packet-net/rhp2lib-net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>rhpv2;xrouter;packet-radio;ax25;netrom;ham-radio</PackageTags>
   </PropertyGroup>

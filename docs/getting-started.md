@@ -26,8 +26,8 @@ binary or (b) consuming the `RhpV2.Client` library from your own .NET app.
 ## Option A: use the `rhp` CLI
 
 Pre-built single-file binaries are attached to every
-[GitHub Release](https://github.com/M0LTE/rhp2lib-net/releases) — grab the
-[**latest**](https://github.com/M0LTE/rhp2lib-net/releases/latest) and pick
+[GitHub Release](https://github.com/packet-net/rhp2lib-net/releases) — grab the
+[**latest**](https://github.com/packet-net/rhp2lib-net/releases/latest) and pick
 the archive matching your platform:
 
 | RID              | Archive                              |
@@ -47,7 +47,7 @@ Each archive contains a single self-contained `rhp` (or `rhp.exe`) — no
 
     ```sh
     curl -L -o rhp.tar.gz \
-      https://github.com/M0LTE/rhp2lib-net/releases/latest/download/rhp2lib-net-X.Y.Z-linux-x64.tar.gz
+      https://github.com/packet-net/rhp2lib-net/releases/latest/download/rhp2lib-net-X.Y.Z-linux-x64.tar.gz
     tar -xzf rhp.tar.gz
     sudo mv rhp /usr/local/bin/
     rhp --help
@@ -57,7 +57,7 @@ Each archive contains a single self-contained `rhp` (or `rhp.exe`) — no
 
     ```powershell
     Invoke-WebRequest `
-      -Uri https://github.com/M0LTE/rhp2lib-net/releases/latest/download/rhp2lib-net-X.Y.Z-win-x64.zip `
+      -Uri https://github.com/packet-net/rhp2lib-net/releases/latest/download/rhp2lib-net-X.Y.Z-win-x64.zip `
       -OutFile rhp.zip
     Expand-Archive rhp.zip -DestinationPath C:\Tools\rhp
     C:\Tools\rhp\rhp.exe --help
@@ -66,7 +66,7 @@ Each archive contains a single self-contained `rhp` (or `rhp.exe`) — no
 ### Build the CLI from source
 
 ```sh
-git clone https://github.com/M0LTE/rhp2lib-net.git
+git clone https://github.com/packet-net/rhp2lib-net.git
 cd rhp2lib-net
 dotnet build RhpV2.slnx -c Release
 dotnet run --project src/RhpV2.Tools -- probe --host 127.0.0.1
@@ -88,7 +88,7 @@ or in your `.csproj`:
 
 The package multi-targets `net8.0` and `net10.0`; consumers on .NET 8,
 9, or 10 all get a matching assembly via NuGet's TFM resolution.  The
-.nupkg is also attached to every [GitHub Release](https://github.com/M0LTE/rhp2lib-net/releases)
+.nupkg is also attached to every [GitHub Release](https://github.com/packet-net/rhp2lib-net/releases)
 if you need to pin via a local feed.
 
 Hello, world:

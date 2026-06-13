@@ -1,8 +1,8 @@
 site_name: rhp2lib-net
 site_description: A .NET 10 client library, mock server, and CLI for the XRouter RHPv2 packet-radio protocol.
 site_url: https://rhp2lib.pages.dev/
-repo_url: https://github.com/M0LTE/rhp2lib-net
-repo_name: M0LTE/rhp2lib-net
+repo_url: https://github.com/packet-net/rhp2lib-net
+repo_name: packet-net/rhp2lib-net
 edit_uri: edit/main/docs/
 copyright: Copyright &copy; 2026 M0LTE
 
@@ -85,7 +85,7 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/M0LTE/rhp2lib-net
+      link: https://github.com/packet-net/rhp2lib-net
   generator: false
 
 nav:

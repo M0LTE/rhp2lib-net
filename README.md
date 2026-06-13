@@ -8,7 +8,7 @@ applications.
 📖 **Full documentation:** <https://rhp2lib.pages.dev/>
 📦 **Install:** `dotnet add package RhpV2.Client` &nbsp;·&nbsp;
 self-contained `rhp` CLI binaries for Linux / Windows / macOS at
-[GitHub Releases](https://github.com/M0LTE/rhp2lib-net/releases).
+[GitHub Releases](https://github.com/packet-net/rhp2lib-net/releases).
 
 The protocol is described in
 [PWP-0222](https://wiki.oarc.uk/packet:white-papers:pwp-0222) and

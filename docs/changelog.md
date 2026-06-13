@@ -1,6 +1,6 @@
 # Release notes
 
-This page mirrors the [GitHub Releases](https://github.com/M0LTE/rhp2lib-net/releases)
+This page mirrors the [GitHub Releases](https://github.com/packet-net/rhp2lib-net/releases)
 feed, with a short summary per version.
 
 ## Unreleased
